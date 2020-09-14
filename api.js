@@ -103,21 +103,21 @@ async function refreshTicker(base, quote){
 	if (!ticker)
 		return console.log(base + "_" + quote + " not found in assocTickersByAssets")
 
-	var rows = await db.query("SELECT MIN(quote_qty*1.0/base_qty) AS low24hr FROM trades WHERE timestamp > date('now' ,'-1 days') AND quote=? AND base=?",[quote, base]);
+	var rows = await db.query("SELECT MIN(quote_qty*1.0/base_qty) AS low FROM trades WHERE timestamp > date('now' ,'-1 days') AND quote=? AND base=?",[quote, base]);
 	if (rows[0])
-		ticker.low24hr = rows[0].low24hr * getDecimalsPriceCoefficient(ticker);
+		ticker.low = rows[0].low * getDecimalsPriceCoefficient(ticker);
 	else
-		delete ticker.low24hr;
+		delete ticker.low;
 
-	rows = await db.query("SELECT MAX(quote_qty*1.0/base_qty) AS high24hr FROM trades WHERE timestamp > date('now' ,'-1 days') AND quote=? AND base=?",[quote, base]);
+	rows = await db.query("SELECT MAX(quote_qty*1.0/base_qty) AS high FROM trades WHERE timestamp > date('now' ,'-1 days') AND quote=? AND base=?",[quote, base]);
 	if (rows[0])
-		ticker.high24hr = rows[0].high24hr * getDecimalsPriceCoefficient(ticker);
+		ticker.high = rows[0].high * getDecimalsPriceCoefficient(ticker);
 	else
-		delete ticker.high24hr * getDecimalsPriceCoefficient(ticker);
+		delete ticker.high * getDecimalsPriceCoefficient(ticker);
 
-	rows = await db.query("SELECT quote_qty*1.0/base_qty AS last FROM trades WHERE quote=? AND base=? ORDER BY timestamp DESC LIMIT 1",[quote, base]);
+	rows = await db.query("SELECT quote_qty*1.0/base_qty AS last_price FROM trades WHERE quote=? AND base=? ORDER BY timestamp DESC LIMIT 1",[quote, base]);
 	if (rows[0])
-		ticker.last = rows[0].last * getDecimalsPriceCoefficient(ticker);
+		ticker.last_price = rows[0].last_price * getDecimalsPriceCoefficient(ticker);
 
 	rows = await db.query("SELECT SUM(quote_qty) AS quote_volume FROM trades WHERE timestamp > date('now' ,'-1 days') AND quote=? AND base=?",[quote, base]);
 	if (rows[0])
