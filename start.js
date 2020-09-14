@@ -96,7 +96,7 @@ async function treatResponseFromCurveAA(objResponse, objInfos){
 		}
 		if (asset2_added != 0){
 			await db.query("INSERT INTO trades (response_unit, base, quote, base_qty, quote_qty, type, indice, timestamp) VALUES (?,?,?,?,?,?,1,?)", 
-			[objResponse.response_unit, asset2, reserve_asset, Math.abs(asset2_added),  Math.abs(reserveTradedForAsset1), asset2_added > 0 ? 'buy' : 'sell', timestamp]);
+			[objResponse.response_unit, asset2, reserve_asset, Math.abs(asset2_added),  Math.abs(reserveTradedForAsset2), asset2_added > 0 ? 'buy' : 'sell', timestamp]);
 			api.refreshMarket(asset2, reserve_asset);
 		}
 	}
