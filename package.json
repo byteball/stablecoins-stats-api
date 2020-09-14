@@ -1,0 +1,10 @@
+{
+	"name": "stablecoins-stats-api",
+	"version": "0.1.0",
+	"dependencies": {
+		"moment": "^2.24.0",
+		"express": "^4.17.1",
+		"ocore": "git+https://github.com/byteball/ocore.git",
+		"dotenv": "^8.2.0"
+	}
+}
