@@ -7,7 +7,7 @@ exports.bLight = true;
 
 exports.apiPort = process.env.testnet ? 4001 : 4000;
 
-exports.hub = process.env.testnet ? 'obyte.org/bb-test' : 'obyte.org/bb';
+exports.hub = process.env.testnet ? 'odex.papabyte.com/bb' : 'obyte.org/bb';
 exports.explorer_base_url = process.env.testnet ? 'https://testnetexplorer.obyte.org/#' : 'https://explorer.obyte.org/#';
 exports.stablecoins_base_url = process.env.testnet ? 'https://stable.twoogi.ru/trade/' : 'https://explorer.obyte.org/#';
 

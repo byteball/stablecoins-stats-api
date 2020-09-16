@@ -19,12 +19,17 @@ exports.create = async function(){
 	await db.query("CREATE INDEX IF NOT EXISTS tradesByBaseQuoteAndTime ON trades(base,quote,timestamp)");
 	await db.query("CREATE INDEX IF NOT EXISTS tradesByQuoteBaseAndTime ON trades(quote,base,timestamp)");
 
-	await db.query("CREATE TABLE IF NOT EXISTS symbols (\n\
+	await db.query("CREATE TABLE IF NOT EXISTS bonded_assets (\n\
 		asset CHAR(44) NOT NULL PRIMARY KEY, \n\
 		symbol VARCHAR(40) NOT NULL, \n\
 		decimals INTEGER NOT NULL, \n\
 		description TEXT, \n\
 		UNIQUE (symbol)\n\
+	)");
+
+	await db.query("CREATE TABLE IF NOT EXISTS supplies (\n\
+		asset CHAR(44) NOT NULL PRIMARY KEY, \n\
+		supply DEFAULT NULL \n\
 	)");
 
 	await db.query("CREATE TABLE IF NOT EXISTS deposits_aas (\n\
@@ -39,5 +44,7 @@ exports.create = async function(){
 		asset_1 CHAR(44) NOT NULL, \n\
 		asset_2 CHAR(44) NOT NULL \n\
 	)");
+
+
 
 }

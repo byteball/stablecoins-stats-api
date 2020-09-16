@@ -34,10 +34,15 @@ async function treatResponseFromDepositsAA(objResponse, objInfos){
 
 	const timestamp = objResponseUnit ? new Date(objResponseUnit.timestamp * 1000).toISOString() : null;
 
+	const depositAaVars = await getStateVars(depositAaAddress);
+	const supply = depositAaVars.supply;
+
+
 	if (objResponse.response.responseVars && objResponse.response.responseVars.id){
 
 		await db.query("INSERT INTO trades (response_unit, base, quote, base_qty, quote_qty, type, timestamp) VALUES (?,?,?,?,?,?,?)", 
 		[objResponse.response_unit, stable_asset, interest_asset, stable_amount_from_aa, interest_amount_to_aa, 'buy', timestamp]);
+		await saveSupplyForAsset(stable_asset, supply); // only stable asset supply change, interest asset are only locked
 		return api.refreshMarket(stable_asset, interest_asset);
 	
 	} 
@@ -48,6 +53,7 @@ async function treatResponseFromDepositsAA(objResponse, objInfos){
 		if (interest_amount_from_aa > 0){
 			await db.query("INSERT INTO trades (response_unit, base, quote, base_qty, quote_qty, type, timestamp) VALUES (?,?,?,?,?,?,?)", 
 			[objResponse.response_unit, stable_asset,interest_asset, stable_amount_to_aa - stable_amount_from_aa, interest_amount_from_aa, 'sell', timestamp]);
+			await saveSupplyForAsset(stable_asset, supply); 
 			return api.refreshMarket(stable_asset, interest_asset);
 		} 
 	}
@@ -59,6 +65,7 @@ async function treatResponseFromDepositsAA(objResponse, objInfos){
 		stable_amount_to_aa = getAmountToAa(depositTriggerUnit, depositAaAddress, stable_asset);
 		await db.query("INSERT INTO trades (response_unit, base, quote, base_qty, quote_qty, type, timestamp) VALUES (?,?,?,?,?,?,?)", 
 		[objResponse.response_unit, stable_asset, interest_asset, stable_amount_to_aa , interest_amount_from_aa, 'sell', timestamp]);
+		await saveSupplyForAsset(stable_asset, supply);
 		return api.refreshMarket(stable_asset, interest_asset);
 	}
 	
@@ -89,14 +96,20 @@ async function treatResponseFromCurveAA(objResponse, objInfos){
 		const reserveTradedForAsset2 = asset1_added !== 0 ? objResponse.response.responseVars.p2 * asset2_added : reserve_added;
 		const reserveTradedForAsset1 = reserve_added - reserveTradedForAsset2;
 
+		const curveAaVars = await getStateVars(curveAaAddress);
+		const supply1 = curveAaVars.supply1;
+		const supply2 = curveAaVars.supply2;
+
 		if (asset1_added != 0){
 			await db.query("INSERT INTO trades (response_unit, base, quote, base_qty, quote_qty, type, timestamp) VALUES (?,?,?,?,?,?,?)", 
 			[objResponse.response_unit, asset1, reserve_asset, Math.abs(asset1_added),  Math.abs(reserveTradedForAsset1), asset1_added > 0 ? 'buy' : 'sell', timestamp]);
+			await saveSupplyForAsset(asset1, supply1);
 			api.refreshMarket(asset1, reserve_asset);
 		}
 		if (asset2_added != 0){
 			await db.query("INSERT INTO trades (response_unit, base, quote, base_qty, quote_qty, type, indice, timestamp) VALUES (?,?,?,?,?,?,1,?)", 
 			[objResponse.response_unit, asset2, reserve_asset, Math.abs(asset2_added),  Math.abs(reserveTradedForAsset2), asset2_added > 0 ? 'buy' : 'sell', timestamp]);
+			await saveSupplyForAsset(asset2, supply2);
 			api.refreshMarket(asset2, reserve_asset);
 		}
 	}
@@ -253,6 +266,10 @@ async function saveAndwatchCurveAa(objAa){
 	});
 }
 
+async function saveSupplyForAsset(asset, supply){
+	await db.query("REPLACE INTO supplies (supply,asset) VALUES (?,?)", [supply, asset]);
+}
+
 
 async function saveSymbolForAsset(asset){
 	var symbol,decimals, description;
@@ -268,15 +285,16 @@ async function saveSymbolForAsset(asset){
 		description = registryVars['desc_' + current_desc];
 		if (!symbol || !decimals){
 			console.log('asset ' + asset + ' not found in registry');
-			await db.query("DELETE FROM symbols WHERE asset=?", [asset]);
+			await db.query("DELETE FROM bonded_assets WHERE asset=?", [asset]);
 			return;
 		}
 	} else {
 		symbol = 'GBYTE';
 		decimals = 9;
+		description = 'Obyte DAG native currency';
 	};
 
-	await db.query("REPLACE INTO symbols (asset, symbol, decimals, description) VALUES (?,?,?,?)", [asset, symbol, decimals, description]);
+	await db.query("REPLACE INTO bonded_assets (asset, symbol, decimals, description) VALUES (?,?,?,?)", [asset, symbol, decimals, description]);
 }
 
 async function refreshSymbols(){
@@ -285,7 +303,7 @@ async function refreshSymbols(){
 	UNION SELECT asset_1 AS asset FROM curve_aas UNION SELECT asset_2 AS asset FROM curve_aas");
 	for (var i; i < rows.length; i++)
 		await saveSymbolForAsset(rows[i].asset);
-	api.initSymbolsCache();
+	api.initAssetsCache();
 }
 
 
