@@ -42,7 +42,7 @@ async function treatResponseFromDepositsAA(objResponse, objInfos){
 	
 	} 
 
-	const stable_amount_to_aa = getAmountToAa(objTriggerUnit, depositAaAddress, stable_asset);
+	var stable_amount_to_aa = getAmountToAa(objTriggerUnit, depositAaAddress, stable_asset);
 
 	if (stable_amount_to_aa > 0 && data.id){
 		if (interest_amount_from_aa > 0){
@@ -54,11 +54,11 @@ async function treatResponseFromDepositsAA(objResponse, objInfos){
 
 	if (data.commit_force_close && data.id){
 		const depositTriggerUnit = await storage.readUnit(data.id);
-		if (!objTriggerUnit)
+		if (!depositTriggerUnit)
 			throw Error('trigger unit not found ' + data.id);
-		const stable_amount_from_aa = getAmountFromAa(depositTriggerUnit, depositAaAddress, stable_asset);
+		stable_amount_to_aa = getAmountToAa(depositTriggerUnit, depositAaAddress, stable_asset);
 		await db.query("INSERT INTO trades (response_unit, base, quote, base_qty, quote_qty, type, timestamp) VALUES (?,?,?,?,?,?,?)", 
-		[objResponse.response_unit, stable_asset, interest_asset, stable_amount_from_aa , interest_amount_from_aa, 'sell', timestamp]);
+		[objResponse.response_unit, stable_asset, interest_asset, stable_amount_to_aa , interest_amount_from_aa, 'sell', timestamp]);
 		return api.refreshMarket(stable_asset, interest_asset);
 	}
 	
