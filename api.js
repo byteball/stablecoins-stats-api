@@ -70,9 +70,9 @@ function getDecimalsPriceCoefficient(base, quote){
 async function createTicker(base, quote){
 	if (assocAssets[base] && assocAssets[quote]){
 
-		const trading_pairs = assocAssets[base].symbol + getMarketNameSeparator() + assocAssets[quote].symbol
+		const market_name = assocAssets[base].symbol + getMarketNameSeparator() + assocAssets[quote].symbol
 		const ticker = {
-			trading_pairs,
+			market_name,
 			quote_symbol: assocAssets[quote].symbol,
 			base_symbol: assocAssets[base].symbol,
 			quote_id: quote,
@@ -80,11 +80,11 @@ async function createTicker(base, quote){
 		};
 
 		assocTickersByAssets[base + "_" + quote] = ticker;
-		assocTickersByMarketNames[trading_pairs] = ticker;
+		assocTickersByMarketNames[market_name] = ticker;
 
 		const trades = [];
 		assocTradesByAssets[base + "_" + quote] = trades;
-		assocTradesByMarketNames[trading_pairs]= trades;
+		assocTradesByMarketNames[market_name]= trades;
 		return true;
 	}
 	else {
@@ -123,7 +123,7 @@ async function refreshTrades(base, quote){
 	WHERE timestamp > date('now' ,'-1 days') AND quote=? AND base=? ORDER BY timestamp DESC",[quote, base]);
 	rows.forEach(function(row){
 		trades.push({
-			market_pair: ticker.base_symbol + getMarketNameSeparator() + ticker.quote_symbol,
+			market_name: ticker.base_symbol + getMarketNameSeparator() + ticker.quote_symbol,
 			price: row.price * getDecimalsPriceCoefficient(base, quote),
 			base_volume: row.base_volume / 10 ** assocAssets[base].decimals,
 			quote_volume: row.quote_volume / 10 ** assocAssets[quote].decimals,
