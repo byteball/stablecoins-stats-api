@@ -42,7 +42,10 @@ exports.create = async function(){
 		address CHAR(32) NOT NULL PRIMARY KEY, \n\
 		reserve_asset CHAR(44) NOT NULL, \n\
 		asset_1 CHAR(44) NOT NULL, \n\
-		asset_2 CHAR(44) NOT NULL \n\
+		asset_2 CHAR(44) NOT NULL, \n\
+		asset_1_decimals INTEGER NOT NULL, \n\
+		asset_2_decimals INTEGER NOT NULL, \n\
+		reserve_decimals INTEGER NOT NULL \n\
 	)");
 
 

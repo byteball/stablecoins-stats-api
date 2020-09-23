@@ -64,7 +64,7 @@ function getMarketNameSeparator(){
 }
 
 function getDecimalsPriceCoefficient(base, quote){
-	return 10 ** (assocAssets[quote].decimals - assocAssets[base].decimals);
+	return 10 ** (assocAssets[base].decimals - assocAssets[quote].decimals);
 }
 
 async function createTicker(base, quote){

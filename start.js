@@ -93,7 +93,7 @@ async function treatResponseFromCurveAA(objResponse, objInfos){
 		const asset1_added = getAmountFromAa(objResponseUnit, curveAaAddress, asset1) - getAmountToAa(objTriggerUnit, curveAaAddress, asset1); // can be negative
 		const asset2_added = getAmountFromAa(objResponseUnit, curveAaAddress, asset2) - getAmountToAa(objTriggerUnit, curveAaAddress, asset2); // can be negative
 	
-		const reserveTradedForAsset2 = asset1_added !== 0 ? objResponse.response.responseVars.p2 * asset2_added : reserve_added;
+		const reserveTradedForAsset2 = asset1_added !== 0 ? (objResponse.response.responseVars.p2 * 10 ** (objInfos.reserve_decimals - objInfos.asset_2_decimals) * asset2_added) : reserve_added;
 		const reserveTradedForAsset1 = reserve_added - reserveTradedForAsset2;
 
 		const curveAaVars = await getStateVars(curveAaAddress);
@@ -248,7 +248,6 @@ function discoverCurveAas(){
 		network.requestFromLightVendor('light/get_aas_by_base_aas', {
 			base_aa: conf.curve_base_aa
 		}, async function(ws, request, arrResponse){
-			console.log(arrResponse);
 			const allAaAddresses = arrResponse.map(obj => obj.address);
 			const rows = await db.query("SELECT address FROM curve_aas WHERE address IN("+ allAaAddresses.map(db.escape).join(',')+")");
 			const knownAaAddresses = rows.map(obj => obj.address);
@@ -261,7 +260,7 @@ function discoverCurveAas(){
 
 async function saveAndwatchCurveAa(objAa){
 	return new Promise(async function(resolve){
-		await	saveCurveAa(objAa);
+		await saveCurveAa(objAa);
 		walletGeneral.addWatchedAddress(objAa.address, resolve);
 	});
 }
@@ -298,7 +297,6 @@ async function saveSymbolForAsset(asset){
 }
 
 async function refreshSymbols(){
-	console.log("refreshSymbols");
 	const rows = await db.query("SELECT stable_asset AS asset FROM deposits_aas UNION SELECT DISTINCT reserve_asset AS asset FROM curve_aas \n\
 	UNION SELECT asset_1 AS asset FROM curve_aas UNION SELECT asset_2 AS asset FROM curve_aas");
 	for (var i; i < rows.length; i++)
@@ -313,14 +311,18 @@ async function saveCurveAa(objAa){
 
 		const curveAaAddress = objAa.address;
 		const reserve_asset = objAa.definition[1].params.reserve_asset;
-
+		const asset1Decimals = objAa.definition[1].params.decimals1;
+		const asset2Decimals = objAa.definition[1].params.decimals2;
+		const reserveDecimals = objAa.definition[1].params.reserve_asset_decimals;
 		const curveAaVars = await getStateVars(curveAaAddress);
 		const asset1 = curveAaVars.asset1;
 		const asset2 = curveAaVars.asset2;
 
 		if (!asset1 || !asset2)
 			return setTimeout(function(){ saveCurveAa(objAa).then(resolve) }, 1000);
-		await db.query("INSERT " + db.getIgnore() + " INTO curve_aas (address, asset_1, asset_2, reserve_asset) VALUES (?,?,?,?)", [curveAaAddress, asset1, asset2, reserve_asset]);
+		await db.query("INSERT " + db.getIgnore() + " INTO curve_aas (address, asset_1, asset_2, reserve_asset, asset_1_decimals, asset_2_decimals,reserve_decimals) \n\
+		VALUES (?,?,?,?,?,?,?)", 
+		[curveAaAddress, asset1, asset2, reserve_asset, asset1Decimals, asset2Decimals, reserveDecimals]);
 		await Promise.all([saveSymbolForAsset(reserve_asset), saveSymbolForAsset(asset1), saveSymbolForAsset(asset2)]);
 		resolve();
 	})
