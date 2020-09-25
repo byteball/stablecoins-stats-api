@@ -11,7 +11,7 @@ const api = require('./api.js');
 
 lightWallet.setLightVendorHost(conf.hub);
 
-eventBus.on('connected', function(ws){
+eventBus.once('connected', function(ws){
 	network.initWitnessesIfNecessary(ws, start);
 });
 
@@ -182,18 +182,18 @@ function getTriggerUnitData(objTriggerUnit){
 
 async function start(){
 	await sqlite_tables.create();
-	await lookForExistingStablecoins()
-	network.addLightWatchedAa(conf.curve_base_aa, null, err => {
-		if (err)
-			throw Error(err);
-	});
-	network.addLightWatchedAa(conf.token_registry_aa_address, null, err => {
-		if (err)
-			throw Error(err);
-	});
-
+	await lookForExistingStablecoins();
+	addLightWatchedAas();
 	api.start();
+	lightWallet.refreshLightClientHistory();
 	setInterval(lightWallet.refreshLightClientHistory, 60*1000);
+	eventBus.on('connected', addLightWatchedAas)
+}
+
+
+async function addLightWatchedAas(){
+	network.addLightWatchedAa(conf.curve_base_aa, null, console.log);
+	network.addLightWatchedAa(conf.token_registry_aa_address, null, console.log);
 }
 
 async function lookForExistingStablecoins(){
