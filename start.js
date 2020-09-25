@@ -331,11 +331,16 @@ function handleJustsaying(ws, subject, body) {
 	switch (subject) {
 		case 'light/aa_definition':
 			onAADefinition(body);
-		break;
+			break;
+
 		case 'light/aa_response':
 			if (body.aa_address == conf.token_registry_aa_address)
-			refreshSymbols();
-		break;
+				refreshSymbols();
+			break;
+			
+		case 'light/have_updates':
+			lightWallet.refreshLightClientHistory();
+			break;
 	}
 }
 
