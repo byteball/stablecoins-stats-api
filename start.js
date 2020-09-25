@@ -186,7 +186,6 @@ async function start(){
 	addLightWatchedAas();
 	api.start();
 	lightWallet.refreshLightClientHistory();
-	setInterval(lightWallet.refreshLightClientHistory, 60*1000);
 	eventBus.on('connected', addLightWatchedAas)
 }
 
