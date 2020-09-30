@@ -5,6 +5,33 @@ exports.create = async function(){
 	console.log("will create tables if not exist");
 
 
+	await db.query("CREATE TABLE IF NOT EXISTS hourly_candles (\n\
+		base CHAR(44) NOT NULL, \n\
+		quote CHAR(44) NOT NULL, \n\
+		quote_qty REAL DEFAULT 0, \n\
+		base_qty REAL DEFAULT 0, \n\
+		highest_price REAL, \n\
+		lowest_price REAL, \n\
+		open_price REAL, \n\
+		close_price REAL, \n\
+		start_timestamp TIMESTAMP NOT NULL, \n\
+		UNIQUE (base, quote, start_timestamp)\n\
+	)");
+
+	await db.query("CREATE TABLE IF NOT EXISTS daily_candles (\n\
+		base CHAR(44) NOT NULL, \n\
+		quote CHAR(44) NOT NULL, \n\
+		quote_qty REAL DEFAULT 0, \n\
+		base_qty REAL DEFAULT 0, \n\
+		highest_price REAL, \n\
+		lowest_price REAL, \n\
+		open_price REAL, \n\
+		close_price REAL, \n\
+		start_timestamp TIMESTAMP NOT NULL, \n\
+		UNIQUE (base, quote, start_timestamp)\n\
+	)");
+
+
 	await db.query("CREATE TABLE IF NOT EXISTS trades (\n\
 		response_unit CHAR(44) NOT NULL, \n\
 		indice INTEGER DEFAULT 0, \n\

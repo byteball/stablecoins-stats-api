@@ -180,6 +180,8 @@ function getTriggerUnitData(objTriggerUnit){
 }
 
 
+
+
 async function start(){
 	await sqlite_tables.create();
 	await lookForExistingStablecoins();

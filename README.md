@@ -50,7 +50,7 @@ Return all assets having their trades listed. It is to be noted that only assets
 }
 ```
 
-
+---------------------------------------
 
 - */api/v1/summary*
 
@@ -84,7 +84,7 @@ Return an array of all traded pairs with their characteristics and statistics fo
 ]
 ```
 
-
+---------------------------------------
 
 - */api/v1/tickers*
 
@@ -120,13 +120,13 @@ Return an associative array  of all tickers sorted by markets
 }
 ```
 
-
+---------------------------------------
 
 - */api/v1/ticker/<market_name>*
 
 Return a ticker for a specific market
 
-
+---------------------------------------
 
 - */api/v1/trades/<market_name>*
 
@@ -156,4 +156,42 @@ Return an array of last 24h trades for a specific market
   },
  ...
  ]
+```
+---------------------------------------
+
+- */api/v1/candles/<market_name>/<period>/<start_timestamp>/<end_timestamp>*
+
+Return an array of candlesticks for a time windows.
+
+**period**: `hourly` or `daily`
+**start_timestamp**: unix timestamp
+**end_timestamp**: unix timestamp
+
+
+```json
+[{
+    "quote_volume": 0.3483240085253005,
+    "base_volume": 0.014380741,
+    "highest_price": 24.221561915710776,
+    "lowest_price": 24.221561915710776,
+    "open_price": 24.221561915710776,
+    "close_price": 24.221561915710776,
+    "start_timestamp": "2020-09-28T00:00:00.000Z"
+}, {
+    "quote_volume": 0,
+    "base_volume": 0,
+    "highest_price": 24.221561915710776,
+    "lowest_price": 24.221561915710776,
+    "open_price": 24.221561915710776,
+    "close_price": 24.221561915710776,
+    "start_timestamp": "2020-09-29T00:00:00.000Z"
+}, {
+    "quote_volume": 0.035434728,
+    "base_volume": 0.0011,
+    "highest_price": 32.215553,
+    "lowest_price": 32.19175,
+    "open_price": 32.215553,
+    "close_price": 32.19175,
+    "start_timestamp": "2020-09-30T00:00:00.000Z"
+}]
 ```
