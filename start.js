@@ -40,7 +40,7 @@ async function treatResponseFromDepositsAA(objResponse, objInfos){
 
 	if (objResponse.response.responseVars && objResponse.response.responseVars.id){
 
-		await db.query("INSERT INTO trades (response_unit, base, quote, base_qty, quote_qty, type, timestamp) VALUES (?,?,?,?,?,?,?)", 
+		await db.query("REPLACE INTO trades (response_unit, base, quote, base_qty, quote_qty, type, timestamp) VALUES (?,?,?,?,?,?,?)", 
 		[objResponse.response_unit, stable_asset, interest_asset, stable_amount_from_aa, interest_amount_to_aa, 'buy', timestamp]);
 		await saveSupplyForAsset(stable_asset, supply); // only stable asset supply change, interest asset are only locked
 		return api.refreshMarket(stable_asset, interest_asset);
@@ -51,7 +51,7 @@ async function treatResponseFromDepositsAA(objResponse, objInfos){
 
 	if (stable_amount_to_aa > 0 && data.id){
 		if (interest_amount_from_aa > 0){
-			await db.query("INSERT INTO trades (response_unit, base, quote, base_qty, quote_qty, type, timestamp) VALUES (?,?,?,?,?,?,?)", 
+			await db.query("REPLACE INTO trades (response_unit, base, quote, base_qty, quote_qty, type, timestamp) VALUES (?,?,?,?,?,?,?)", 
 			[objResponse.response_unit, stable_asset,interest_asset, stable_amount_to_aa - stable_amount_from_aa, interest_amount_from_aa, 'sell', timestamp]);
 			await saveSupplyForAsset(stable_asset, supply); 
 			return api.refreshMarket(stable_asset, interest_asset);
@@ -62,8 +62,8 @@ async function treatResponseFromDepositsAA(objResponse, objInfos){
 		const depositTriggerUnit = await storage.readUnit(data.id);
 		if (!depositTriggerUnit)
 			throw Error('trigger unit not found ' + data.id);
-		stable_amount_to_aa = getAmountToAa(depositTriggerUnit, depositAaAddress, stable_asset);
-		await db.query("INSERT INTO trades (response_unit, base, quote, base_qty, quote_qty, type, timestamp) VALUES (?,?,?,?,?,?,?)", 
+		stable_amount_to_aa = getAmountFromAa(depositTriggerUnit, depositAaAddress, stable_asset);  // the amount to AA is the same as the amount that was initially minted
+		await db.query("REPLACE INTO trades (response_unit, base, quote, base_qty, quote_qty, type, timestamp) VALUES (?,?,?,?,?,?,?)", 
 		[objResponse.response_unit, stable_asset, interest_asset, stable_amount_to_aa , interest_amount_from_aa, 'sell', timestamp]);
 		await saveSupplyForAsset(stable_asset, supply);
 		return api.refreshMarket(stable_asset, interest_asset);
@@ -101,13 +101,13 @@ async function treatResponseFromCurveAA(objResponse, objInfos){
 		const supply2 = curveAaVars.supply2;
 
 		if (asset1_added != 0){
-			await db.query("INSERT INTO trades (response_unit, base, quote, base_qty, quote_qty, type, timestamp) VALUES (?,?,?,?,?,?,?)", 
+			await db.query("REPLACE INTO trades (response_unit, base, quote, base_qty, quote_qty, type, timestamp) VALUES (?,?,?,?,?,?,?)", 
 			[objResponse.response_unit, asset1, reserve_asset, Math.abs(asset1_added),  Math.abs(reserveTradedForAsset1), asset1_added > 0 ? 'buy' : 'sell', timestamp]);
 			await saveSupplyForAsset(asset1, supply1);
 			api.refreshMarket(asset1, reserve_asset);
 		}
 		if (asset2_added != 0){
-			await db.query("INSERT INTO trades (response_unit, base, quote, base_qty, quote_qty, type, indice, timestamp) VALUES (?,?,?,?,?,?,1,?)", 
+			await db.query("REPLACE INTO trades (response_unit, base, quote, base_qty, quote_qty, type, indice, timestamp) VALUES (?,?,?,?,?,?,1,?)", 
 			[objResponse.response_unit, asset2, reserve_asset, Math.abs(asset2_added),  Math.abs(reserveTradedForAsset2), asset2_added > 0 ? 'buy' : 'sell', timestamp]);
 			await saveSupplyForAsset(asset2, supply2);
 			api.refreshMarket(asset2, reserve_asset);
@@ -117,7 +117,9 @@ async function treatResponseFromCurveAA(objResponse, objInfos){
 }
 
 
-eventBus.on('aa_response', async function(objResponse){
+eventBus.on('aa_response', onAaResponse);
+
+async function onAaResponse(objResponse){
 	if(objResponse.response.error)
 		return console.log('ignored response with error: ' + objResponse.response.error);
 	const aa_address = objResponse.aa_address;
@@ -130,7 +132,9 @@ eventBus.on('aa_response', async function(objResponse){
 	INNER JOIN curve_aas ON deposits_aas.curve_aa=curve_aas.address WHERE deposits_aas.address=?",[aa_address]);
 	if (rows[0])
 		return treatResponseFromDepositsAA(objResponse, rows[0]);
-});
+
+}
+
 
 function getAmountFromAa(objResponseUnit, aa_address, asset = 'base'){
 	if (!objResponseUnit)
@@ -185,12 +189,26 @@ function getTriggerUnitData(objTriggerUnit){
 async function start(){
 	await sqlite_tables.create();
 	await lookForExistingStablecoins();
+	
+	if (process.env.reprocess){
+		await reprocessTrades();
+		console.log("All trades reprocessed");
+		process.exit();
+	}
 	addLightWatchedAas();
 	api.start();
 	lightWallet.refreshLightClientHistory();
 	eventBus.on('connected', addLightWatchedAas)
 }
 
+async function reprocessTrades(){
+	const rows = await db.query("SELECT response,trigger_unit,response_unit,aa_address FROM aa_responses ORDER BY aa_response_id ASC; ");
+	for (var i=0; i<rows.length; i++){
+		rows[i].response = JSON.parse(rows[i].response);
+		console.log('reprocess ' + rows[i].trigger_unit);
+		await onAaResponse(rows[i]);
+	}
+}
 
 async function addLightWatchedAas(){
 	network.addLightWatchedAa(conf.curve_base_aa, null, console.log);
