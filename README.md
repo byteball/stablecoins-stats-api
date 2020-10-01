@@ -163,7 +163,7 @@ Return an array of last 24h trades for a specific market
 ```
 ---------------------------------------
 
-- */api/v1/candles/<market_name>?period=<period>&start=<start>&end=<end_timestamp>*
+- */api/v1/candles/\<market_name\>?period=\<period\>&start=\<start\>&end=\<end\>*
 
 Return an array of candlesticks for a time windows.
 
