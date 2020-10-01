@@ -67,7 +67,8 @@ Return an array of all traded pairs with their characteristics and statistics fo
     "highest_price_24h": 0,
     "last_price": 0.9998746017266991,
     "quote_volume": 0,
-    "base_volume": 0
+    "base_volume": 0,
+    "first_trade_date": "2020-09-23T21:29:53.000Z"
   }, {
     "market_name": "BND_TN_STABLE-BND_TN_2",
     "quote_symbol": "BND_TN_2",
@@ -78,7 +79,8 @@ Return an array of all traded pairs with their characteristics and statistics fo
     "highest_price_24h": 0.9068299224112237,
     "last_price": 0.8909027484291233,
     "quote_volume": 2.02677942,
-    "base_volume": 2.235536691
+    "base_volume": 2.235536691,
+    "first_trade_date": "2020-09-28T20:05:00.000Z"
   },
   ...
 ]
@@ -99,10 +101,11 @@ Return an associative array  of all tickers sorted by markets
     "quote_id": "NVLMUHd2VmcWM1zbdSBkXbPDo2KsFgGPNOtTlvb1Ch0=",
     "base_id": "b+oglO8ho7P21hDv/MfeJSsX+aknNXNQD2KsbQ6Y94I=",
     "lowest_price_24h": 0,
-    "highest_price_24h": 0,
+   "highest_price_24h": 0,
     "last_price": 0.9998746017266991,
     "quote_volume": 0,
-    "base_volume": 0
+    "base_volume": 0,
+    "first_trade_date": "2020-09-23T21:29:53.000Z"
   },
   "BND_TN_STABLE-BND_TN_2": {
     "market_name": "BND_TN_STABLE-BND_TN_2",
@@ -114,7 +117,8 @@ Return an associative array  of all tickers sorted by markets
     "highest_price_24h": 0.9068299224112237,
     "last_price": 0.8909027484291233,
     "quote_volume": 2.02677942,
-    "base_volume": 2.235536691
+    "base_volume": 2.235536691,
+    "first_trade_date": "2020-09-28T20:05:00.000Z"
   },
   ...
 }
@@ -159,13 +163,13 @@ Return an array of last 24h trades for a specific market
 ```
 ---------------------------------------
 
-- */api/v1/candles/<market_name>/<period>/<start_timestamp>/<end_timestamp>*
+- */api/v1/candles/<market_name>?period=<period>&start=<start>&end=<end_timestamp>*
 
 Return an array of candlesticks for a time windows.
 
-**period**: `hourly` or `daily`
-**start_timestamp**: unix timestamp
-**end_timestamp**: unix timestamp
+- **period**: `hourly` or `daily`
+- **start**: unix timestamp (`1601013600`), ISO8601 date (`2020-09-25`) or ISO8601 datetime (`2020-09-25T06:00:00.000Z`)
+- **end**: unix timestamp (`1601013600`), ISO8601 date (`2020-09-25`) or ISO8601 datetime (`2020-09-25T06:00:00.000Z`)
 
 
 ```json

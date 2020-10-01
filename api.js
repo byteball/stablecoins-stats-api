@@ -1,6 +1,7 @@
 const conf = require('ocore/conf.js');
 const db = require('ocore/db.js');
 const express = require('express')
+const bodyParser = require('body-parser');
 
 const assocTickersByAssets = {};
 const assocTickersByMarketNames = {};
@@ -25,7 +26,6 @@ async function initMarkets(){
 	const rows = await db.query('SELECT DISTINCT base,quote FROM trades');
 	for (var i=0; i < rows.length; i++){
 		await refreshMarket(rows[i].base, rows[i].quote);
-		await makeNextCandlesForMarket(rows[i].base, rows[i].quote, true);
 	}
 }
 
@@ -174,6 +174,9 @@ async function refreshTicker(base, quote){
 		else
 			ticker.base_volume = 0;
 
+	rows = await db.query("SELECT timestamp FROM trades WHERE quote=? AND base=? ORDER BY timestamp ASC LIMIT 1",[quote, base]);
+		if (rows[0])
+			ticker.first_trade_date = rows[0].timestamp;
 }
 
 
@@ -246,7 +249,6 @@ async function makeNextHourlyCandlesForMarket(base, quote, bReplaceLastCandle){
 }
 
 async function makeCandleForPair(table_name, start_timestamp, end_timestamp, base, quote){
-
 	var low, high, open_price, close_price;
 	var quote_volume, base_volume = 0;
 
@@ -288,6 +290,9 @@ async function start(){
 	const app = express();
 	const server = require('http').Server(app);
 
+	app.use(bodyParser.urlencoded({ extended: false }));
+	app.use(bodyParser.json());
+
 	await initMarkets();
 
 	app.get('/api/v1/assets', async function(request, response){
@@ -328,18 +333,16 @@ async function start(){
 			return response.status(400).send('Unknown market');
 	});
 
-	app.get('/api/v1/candles/:marketName/:period/:start_time/:end_time', async function(request, response){
+	app.get('/api/v1/candles/:marketName', async function(request, response){
 		const marketName = request.params.marketName;
-		const period = request.params.period;
-		const start_time = parseInt(request.params.start_time);
-		const end_time = parseInt(request.params.end_time);
-		if (!start_time)
-			return response.status(400).send('start_time must be unix timestamp');
-		if (!end_time)
-			return response.status(400).send('end_time must be unix timestamp');
+		const period = request.query.period;
+		const start_time = parseDateTime(request.query.start);
+		const end_time = parseDateTime(request.query.end);
 
-		const start_timestamp = new Date(start_time * 1000);
-		const end_timestamp = new Date(end_time * 1000 - (period == "daily" ? 24 * 3600 : 3600));
+		if (!start_time)
+			return response.status(400).send('start_time not valid');
+		if (!end_time)
+			return response.status(400).send('end_time not valid');
 
 		if (period !== 'hourly' && period !== 'daily')
 			return response.status(400).send('period must be "daily" or "hourly"');
@@ -348,7 +351,7 @@ async function start(){
 
 		const rows = await db.query("SELECT quote_qty AS quote_volume,base_qty AS base_volume,highest_price,lowest_price,open_price,close_price,start_timestamp\n\
 		FROM " + period +"_candles WHERE start_timestamp>=? AND start_timestamp<? AND quote=? AND base=?", 
-		[start_timestamp.toISOString() ,end_timestamp.toISOString() , assocTickersByMarketNames[marketName].quote_id, assocTickersByMarketNames[marketName].base_id])
+		[start_time.toISOString() , end_time.toISOString(), assocTickersByMarketNames[marketName].quote_id, assocTickersByMarketNames[marketName].base_id])
 		return response.send(rows);
 		}
 		else
@@ -359,6 +362,22 @@ async function start(){
 		console.log(`== server started listening on ${conf.webServerPort} port`);
 	});
 }
+
+function parseDateTime(string){
+	if (!string)
+		return null;
+	var date = null;
+	if (string.match(/^\d\d\d\d-\d\d-\d\d$/))
+		date = new Date(Date.parse(string));
+	else if (string.match(/^\d\d\d\d-\d\d-\d\d( |T)\d\d:\d\d:\d\dZ$/))
+		date = new Date(Date.parse(string));
+	else if (string.match(/^\d\d\d\d-\d\d-\d\d( |T)\d\d:\d\d:\d\d.\d\d\dZ$/))
+		date = new Date(Date.parse(string));
+	else if (string.match(/^\d+$/))
+		date = new Date(parseInt(string) / 1000);
+	return date;
+}
+
 
 function waitUntilRefreshFinished(){
 	return new Promise(function(resolve){
