@@ -1,7 +1,6 @@
 const conf = require('ocore/conf.js');
 const db = require('ocore/db.js');
 const express = require('express')
-const bodyParser = require('body-parser');
 
 const assocTickersByAssets = {};
 const assocTickersByMarketNames = {};
@@ -191,8 +190,6 @@ async function makeNextDailyCandlesForMarket(base, quote, bReplaceLastCandle){
 	strftime('%Y-%m-%dT%H:00:00.000Z', start_timestamp, '+24 hours') AS last_end_timestamp, \n\
 	strftime('%Y-%m-%dT%H:00:00.000Z', start_timestamp, '+48 hours') AS next_end_timestamp \n\
 	FROM daily_candles WHERE base=? AND quote=? ORDER BY start_timestamp DESC LIMIT 1", [base,quote]);
-	console.log('candles');
-	console.log(candles);
 
 	if (candles[0]){
 		last_start_timestamp = candles[0].last_start_timestamp;
@@ -290,9 +287,6 @@ async function start(){
 	const app = express();
 	const server = require('http').Server(app);
 
-	app.use(bodyParser.urlencoded({ extended: false }));
-	app.use(bodyParser.json());
-
 	await initMarkets();
 
 	app.get('/api/v1/assets', async function(request, response){
@@ -364,7 +358,8 @@ async function start(){
 }
 
 function parseDateTime(string){
-	if (!string)
+
+	if (typeof string !== 'string')
 		return null;
 	var date = null;
 	if (string.match(/^\d\d\d\d-\d\d-\d\d$/))

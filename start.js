@@ -34,7 +34,7 @@ async function treatResponseFromDepositsAA(objResponse, objInfos){
 
 	const timestamp = objResponseUnit ? new Date(objResponseUnit.timestamp * 1000).toISOString() : null;
 
-	const depositAaVars = await getStateVars(depositAaAddress);
+	const depositAaVars = process.env.reprocess ? {} : await getStateVars(depositAaAddress); // we don't refresh supply when reprocessing
 	const supply = depositAaVars.supply;
 
 
@@ -58,11 +58,14 @@ async function treatResponseFromDepositsAA(objResponse, objInfos){
 		} 
 	}
 
-	if (data.commit_force_close && data.id){
-		const depositTriggerUnit = await storage.readUnit(data.id);
-		if (!depositTriggerUnit)
+	if (data.commit_force_close && typeof data.id == "string"){
+		const rows = await db.query("SELECT response_unit FROM aa_responses WHERE trigger_unit=? AND aa_address=?", [data.id, depositAaAddress])
+		if (!rows[0])
+			return console.log("deposit response unit not found")
+		const depositResponseUnit = await await getJointFromStorageOrHub(rows[0].response_unit);
+		if (!depositResponseUnit)
 			throw Error('trigger unit not found ' + data.id);
-		stable_amount_to_aa = getAmountFromAa(depositTriggerUnit, depositAaAddress, stable_asset);  // the amount to AA is the same as the amount that was initially minted
+		stable_amount_to_aa = getAmountFromAa(depositResponseUnit, depositAaAddress, stable_asset);  // the amount to AA is the same as the amount that was initially minted
 		await db.query("REPLACE INTO trades (response_unit, base, quote, base_qty, quote_qty, type, timestamp) VALUES (?,?,?,?,?,?,?)", 
 		[objResponse.response_unit, stable_asset, interest_asset, stable_amount_to_aa , interest_amount_from_aa, 'sell', timestamp]);
 		await saveSupplyForAsset(stable_asset, supply);
@@ -75,7 +78,7 @@ async function treatResponseFromCurveAA(objResponse, objInfos){
 
 	if (objResponse.response.responseVars && objResponse.response.responseVars.p2){
 
-		const objTriggerUnit = await storage.readUnit(objResponse.trigger_unit);
+		const objTriggerUnit = await await getJointFromStorageOrHub(objResponse.trigger_unit);
 		if (!objTriggerUnit)
 			throw Error('trigger unit not found ' + objResponse.trigger_unit);
 	
@@ -96,7 +99,7 @@ async function treatResponseFromCurveAA(objResponse, objInfos){
 		const reserveTradedForAsset2 = asset1_added !== 0 ? (objResponse.response.responseVars.p2 * 10 ** (objInfos.reserve_decimals - objInfos.asset_2_decimals) * asset2_added) : reserve_added;
 		const reserveTradedForAsset1 = reserve_added - reserveTradedForAsset2;
 
-		const curveAaVars = await getStateVars(curveAaAddress);
+		const curveAaVars =  process.env.reprocess ? {} : await getStateVars(curveAaAddress);
 		const supply1 = curveAaVars.supply1;
 		const supply2 = curveAaVars.supply2;
 
@@ -285,6 +288,8 @@ async function saveAndwatchCurveAa(objAa){
 }
 
 async function saveSupplyForAsset(asset, supply){
+	if (!supply)
+		return console.log("unknown supply for " + asset);
 	await db.query("REPLACE INTO supplies (supply,asset) VALUES (?,?)", [supply, asset]);
 }
 
@@ -464,6 +469,7 @@ function getJointFromStorageOrHub(unit){
 		});
 	});
 }
+
 
 
 process.on('unhandledRejection', up => { throw up });
