@@ -93,6 +93,33 @@ async function createTicker(base, quote){
 	}
 }
 
+
+function computeAllGbPrices() {
+	for (var symbol in assocAssetsBySymbols){
+		delete assocAssetsBySymbols[symbol].last_gbyte_value;
+	}
+	assocAssetsBySymbols['GBYTE'].last_gbyte_value = 1;
+
+	findGbPrices();
+
+	function findGbPrices(passesLeft = 2){
+		for (var symbol in assocAssetsBySymbols){
+			if (assocAssetsBySymbols[symbol].last_gbyte_value)
+				continue;	
+			for (var market in assocTickersByMarketNames){
+				const quote_gbyte_value = assocAssetsBySymbols[assocTickersByMarketNames[market].quote_symbol].last_gbyte_value;
+				if (assocTickersByMarketNames[market].base_id == assocAssetsBySymbols[symbol].asset_id && quote_gbyte_value){
+					assocAssetsBySymbols[symbol].last_gbyte_value = assocTickersByMarketNames[market].last_price * quote_gbyte_value;
+					break;
+				}
+			}
+		}
+		if (passesLeft > 0)
+			findGbPrices(passesLeft -1);
+	}
+}
+
+
 async function refreshMarket(base, quote){
 	bRefreshing = true;
 	await refreshAsset(base);
@@ -101,7 +128,7 @@ async function refreshMarket(base, quote){
 		await refreshTrades(base, quote);
 		await refreshTicker(base, quote);
 		await makeNextCandlesForMarket(base, quote);
-
+		computeAllGbPrices(); // change for for this market could affect price of other assets so we recompute all prices
 	} else 
 		console.log("symbol missing");
 	bRefreshing = false;

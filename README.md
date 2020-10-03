@@ -2,6 +2,7 @@
 
 This O<sub>byte</sub> light node explores the DAG and provides API endpoints giving information about trades happening with bonding curves assets.
 
+Available publu
 
 #### Installation
 
@@ -31,21 +32,25 @@ Return all assets having their trades listed. It is to be noted that only assets
     "description": "Obyte DAG native currency",
     "symbol": "GBYTE",
     "unified_cryptoasset_id": 1492,
-    "name": "Obyte"
+    "name": "Obyte",
+    "last_gbyte_value": 1
   },
-  "TEST_BN_1": {
-    "asset_id": "dIWcp7nIGoLUnBAIN+73+K0opvdZ61LqJVcaeMh1UlI=",
+  "GRD": {
+    "asset_id": "YtEVK0inFAj3cQ3CPkJl5Kb8Ax+VlI/dqcOb6GQP64k=",
     "decimals": 9,
-    "description": "Token1 for bonded stablecoin (Z2F2DQ2EOB3USLQZ7RYNPEPPEFHEP6KF)",
-    "symbol": "TEST_BN_1",
-    "supply": 0.364577996
+    "description": "Token1 for bonded stablecoin (26XAPPPTTYRIOSYNCUV3NS2H57X5LZLJ)",
+    "symbol": "GRD",
+    "supply": 3.700131236,
+    "last_gbyte_value": 1167.8807448416585
   },
-  "TEST_BN_2": {
-    "asset_id": "NVLMUHd2VmcWM1zbdSBkXbPDo2KsFgGPNOtTlvb1Ch0=",
-    "decimals": 9,
-    "description": "Token2 for bonded stablecoin (Z2F2DQ2EOB3USLQZ7RYNPEPPEFHEP6KF)",
-    "symbol": "TEST_BN_2"
-	},
+  "IUSD": {
+    "asset_id": "9V8nZuKfa8T3Hr1+40SXkkPeCS6w1+xkRFg4iqk9hws=",
+    "decimals": 4,
+    "description": "Token2 for bonded stablecoin (26XAPPPTTYRIOSYNCUV3NS2H57X5LZLJ)",
+    "symbol": "IUSD",
+    "supply": 24935.9422,
+    "last_gbyte_value": 0.044061113346666674
+  },
 	...
 }
 ```
