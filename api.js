@@ -129,9 +129,9 @@ async function refreshMarket(base, quote){
 		await refreshTrades(base, quote);
 		await refreshTicker(base, quote);
 		await makeNextCandlesForMarket(base, quote);
-		computeAllGbPrices(); // change for for this market could affect price of other assets so we recompute all prices
 	} else 
 		console.log("symbol missing");
+	computeAllGbPrices(); // change for for this market could affect price of other assets so we recompute all prices
 	bRefreshing = false;
 }
 
@@ -315,7 +315,7 @@ async function start(){
 	const app = express();
 	const server = require('http').Server(app);
 	app.use(cors());
-	
+
 	await initMarkets();
 
 	app.get('/api/v1/assets', async function(request, response){
