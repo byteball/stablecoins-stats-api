@@ -91,7 +91,7 @@ async function treatResponseFromCurveAA(objResponse, objInfos){
 		if (!objResponseUnit)
 			throw Error('response unit not found ' + objResponse.trigger_unit);
 
-			const timestamp = new Date(objResponseUnit.timestamp * 1000).toISOString();
+		const timestamp = new Date(objResponseUnit.timestamp * 1000).toISOString();
 		const reserve_added = getAmountToAa(objTriggerUnit, curveAaAddress, reserve_asset) - getAmountFromAa(objResponseUnit, curveAaAddress, reserve_asset); // can be negative
 		const asset1_added = getAmountFromAa(objResponseUnit, curveAaAddress, asset1) - getAmountToAa(objTriggerUnit, curveAaAddress, asset1); // can be negative
 		const asset2_added = getAmountFromAa(objResponseUnit, curveAaAddress, asset2) - getAmountToAa(objTriggerUnit, curveAaAddress, asset2); // can be negative
@@ -325,7 +325,7 @@ async function refreshSymbols(){
 	UNION SELECT asset_1 AS asset FROM curve_aas UNION SELECT asset_2 AS asset FROM curve_aas");
 	for (var i; i < rows.length; i++)
 		await saveSymbolForAsset(rows[i].asset);
-	api.initAssetsCache();
+	api.initMarkets();
 }
 
 

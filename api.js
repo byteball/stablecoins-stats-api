@@ -417,4 +417,4 @@ function waitUntilRefreshFinished(){
 
 exports.start = start;
 exports.refreshMarket = refreshMarket;
-exports.initAssetsCache = initAssetsCache;
+exports.initMarkets = initMarkets;
