@@ -360,7 +360,7 @@ async function start(){
 		const marketName = request.params.marketName;
 		const period = request.query.period;
 		const start_time = parseDateTime(request.query.start);
-		const end_time = parseDateTime(request.query.end);
+		const end_time = parseDateTime(request.query.end, true);
 
 		if (!start_time)
 			return response.status(400).send('start_time not valid');
@@ -386,19 +386,25 @@ async function start(){
 	});
 }
 
-function parseDateTime(string){
+function parseDateTime(string, bEndDate){
 
 	if (typeof string !== 'string')
 		return null;
 	var date = null;
-	if (string.match(/^\d\d\d\d-\d\d-\d\d$/))
+	if (string.match(/^\d\d\d\d-\d\d-\d\d$/)){
 		date = new Date(Date.parse(string));
+		if (bEndDate)
+			date.setDate(date.getUTCDate() + 1); // make end day inclusive
+		return date;
+	}
 	else if (string.match(/^\d\d\d\d-\d\d-\d\d( |T)\d\d:\d\d:\d\dZ$/))
 		date = new Date(Date.parse(string));
 	else if (string.match(/^\d\d\d\d-\d\d-\d\d( |T)\d\d:\d\d:\d\d.\d\d\dZ$/))
 		date = new Date(Date.parse(string));
 	else if (string.match(/^\d+$/))
 		date = new Date(parseInt(string) / 1000);
+	if (bEndDate)
+		date.setUTCHours(date.getUTCHours() + 1); // make end hour inclusive
 	return date;
 }
 
