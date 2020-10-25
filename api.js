@@ -403,6 +403,8 @@ function parseDateTime(string, bEndDate){
 		date = new Date(Date.parse(string));
 	else if (string.match(/^\d+$/))
 		date = new Date(parseInt(string) / 1000);
+	else
+		return null;
 	if (bEndDate)
 		date.setUTCHours(date.getUTCHours() + 1); // make end hour inclusive
 	return date;
