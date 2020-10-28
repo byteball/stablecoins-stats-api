@@ -323,7 +323,7 @@ async function saveSymbolForAsset(asset){
 async function refreshSymbols(){
 	const rows = await db.query("SELECT stable_asset AS asset FROM deposits_aas UNION SELECT DISTINCT reserve_asset AS asset FROM curve_aas \n\
 	UNION SELECT asset_1 AS asset FROM curve_aas UNION SELECT asset_2 AS asset FROM curve_aas");
-	for (var i; i < rows.length; i++)
+	for (var i=0; i < rows.length; i++)
 		await saveSymbolForAsset(rows[i].asset);
 	api.initMarkets();
 }

@@ -2,6 +2,7 @@ const conf = require('ocore/conf.js');
 const db = require('ocore/db.js');
 const express = require('express')
 const cors = require('cors');
+const mutex = require('ocore/mutex.js');
 
 const assocTickersByAssets = {};
 const assocTickersByMarketNames = {};
@@ -122,6 +123,7 @@ function computeAllGbPrices() {
 
 
 async function refreshMarket(base, quote){
+	const unlock = await mutex.lockOrSkip(['refresh_' + base + '-' + quote]);
 	bRefreshing = true;
 	await refreshAsset(base);
 	await refreshAsset(quote);
@@ -133,6 +135,7 @@ async function refreshMarket(base, quote){
 		console.log("symbol missing");
 	computeAllGbPrices(); // change for for this market could affect price of other assets so we recompute all prices
 	bRefreshing = false;
+	unlock();
 }
 
 async function refreshAsset(asset){
@@ -317,6 +320,7 @@ async function start(){
 	app.use(cors());
 
 	await initMarkets();
+	setInterval(initMarkets, 3600 * 1000); // compute last hourly candle even when no trade happened
 
 	app.get('/api/v1/assets', async function(request, response){
 		await waitUntilRefreshFinished();
