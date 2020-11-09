@@ -264,11 +264,14 @@ function saveDepositsAa(objAa){
 	});
 }
 
+async function discoverCurveAas(){
+	await Promise.all(conf.curve_base_aas.map(discoverCurveAasForBase));
+}
 
-function discoverCurveAas(){
+function discoverCurveAasForBase(base_aa){
 	return new Promise((resolve)=>{
 		network.requestFromLightVendor('light/get_aas_by_base_aas', {
-			base_aa: conf.curve_base_aa
+			base_aa
 		}, async function(ws, request, arrResponse){
 			const allAaAddresses = arrResponse.map(obj => obj.address);
 			const rows = await db.query("SELECT address FROM curve_aas WHERE address IN("+ allAaAddresses.map(db.escape).join(',')+")");
@@ -279,6 +282,7 @@ function discoverCurveAas(){
 		});
 	})
 }
+
 
 async function saveAndwatchCurveAa(objAa){
 	return new Promise(async function(resolve){
@@ -308,8 +312,9 @@ async function saveSymbolForAsset(asset){
 		description = registryVars['desc_' + current_desc];
 		if (!symbol || !decimals){
 			console.log('asset ' + asset + ' not found in registry');
-			await db.query("DELETE FROM bonded_assets WHERE asset=?", [asset]);
-			return;
+			symbol = asset;
+			decimals = 0;
+			description = "This asset isn't registered";
 		}
 	} else {
 		symbol = 'GBYTE';
@@ -380,7 +385,7 @@ function onAADefinition(objUnit){
 				const base_aa = payload.definition[1].base_aa;
 				if (base_aa == conf.deposit_base_aa)
 					saveAndwatchDepositsAa({ address: objectHash.getChash160(payload.definition), definition: payload.definition });
-				if (base_aa == conf.curve_base_aa){
+				if (conf.curve_base_aas.indexOf(base_aa) > -1){
 					const address = objectHash.getChash160(payload.definition);
 					const definition = payload.definition;
 					saveAndwatchCurveAa({ address, definition });

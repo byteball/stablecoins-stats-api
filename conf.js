@@ -10,7 +10,10 @@ exports.apiPort = process.env.testnet ? 4001 : 4000;
 exports.hub = process.env.testnet ? 'obyte.org/bb-test' : 'obyte.org/bb';
 exports.explorer_base_url = process.env.testnet ? 'https://testnetexplorer.obyte.org/#' : 'https://explorer.obyte.org/#';
 
-exports.curve_base_aa = process.env.testnet ? "FCFYMFIOGS363RLDLEWIDBIIBU7M7BHP" : "FCFYMFIOGS363RLDLEWIDBIIBU7M7BHP";
+exports.curve_base_aas = process.env.testnet ? 
+["FCFYMFIOGS363RLDLEWIDBIIBU7M7BHP", "3RNNDX57C36E76JLG2KAQSIASAYVGAYG"]
+: 
+["FCFYMFIOGS363RLDLEWIDBIIBU7M7BHP", "3RNNDX57C36E76JLG2KAQSIASAYVGAYG"];
 exports.deposit_base_aa = process.env.testnet ? "GEZGVY4T3LK6N4NJAKNHNQIVAI5OYHPC" : "GEZGVY4T3LK6N4NJAKNHNQIVAI5OYHPC";
 exports.token_registry_aa_address = process.env.testnet ? "O6H6ZIFI57X3PLTYHOCVYPP5A553CYFQ" : "O6H6ZIFI57X3PLTYHOCVYPP5A553CYFQ";
 

@@ -386,7 +386,7 @@ async function start(){
 	});
 
 	server.listen(conf.apiPort, () => {
-		console.log(`== server started listening on ${conf.webServerPort} port`);
+		console.log(`== server started listening on ${conf.apiPort} port`);
 	});
 }
 

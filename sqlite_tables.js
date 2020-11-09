@@ -48,7 +48,7 @@ exports.create = async function(){
 
 	await db.query("CREATE TABLE IF NOT EXISTS bonded_assets (\n\
 		asset CHAR(44) NOT NULL PRIMARY KEY, \n\
-		symbol VARCHAR(40) NOT NULL, \n\
+		symbol VARCHAR(44) NOT NULL, \n\
 		decimals INTEGER NOT NULL, \n\
 		description TEXT, \n\
 		UNIQUE (symbol)\n\
