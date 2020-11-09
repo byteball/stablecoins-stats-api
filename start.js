@@ -310,7 +310,7 @@ async function saveSymbolForAsset(asset){
 		symbol = registryVars['a2s_' + asset];
 		decimals = registryVars['decimals_' + current_desc];
 		description = registryVars['desc_' + current_desc];
-		if (!symbol || !decimals){
+		if (!symbol || typeof decimals !== "number"){
 			console.log('asset ' + asset + ' not found in registry');
 			symbol = asset;
 			decimals = 0;
