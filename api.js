@@ -124,6 +124,8 @@ function computeAllGbPrices() {
 
 async function refreshMarket(base, quote){
 	const unlock = await mutex.lockOrSkip(['refresh_' + base + '-' + quote]);
+	if (!unlock)
+		return;
 	bRefreshing = true;
 	await refreshAsset(base);
 	await refreshAsset(quote);
