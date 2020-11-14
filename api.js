@@ -24,11 +24,15 @@ var bRefreshing = false;
 
 async function initMarkets(){
 	await initAssetsCache();
+	await refreshMarkets();
+}
+
+async function refreshMarkets(){
 	const rows = await db.query('SELECT DISTINCT base,quote FROM trades');
 	for (var i=0; i < rows.length; i++){
 		await refreshMarket(rows[i].base, rows[i].quote);
 	}
-}
+};
 
 async function initAssetsCache(){
 	var rows = await db.query("SELECT * FROM bonded_assets LEFT JOIN supplies USING(asset)");
@@ -37,6 +41,7 @@ async function initAssetsCache(){
 		setAsset(row);
 	});
 }
+
 function setAsset(row){
 	if (!row)
 		return;
@@ -45,12 +50,15 @@ function setAsset(row){
 		decimals: row.decimals,
 	};
 
+	const last_gbyte_value = assocAssetsBySymbols[row.symbol] ? assocAssetsBySymbols[row.symbol].last_gbyte_value : null;
 	assocAssetsBySymbols[row.symbol] = {
 		asset_id: row.asset,
 		decimals: row.decimals,
 		description: row.description,
 		symbol: row.symbol,
 	};
+	if (last_gbyte_value)
+		assocAssetsBySymbols[row.symbol].last_gbyte_value = last_gbyte_value; // preserve last_gbyte_value so we don't lose it after cache reinitialisation until markets are refreshed
 
 	if (row.supply)
 		assocAssetsBySymbols[row.symbol].supply = row.supply / 10 ** row.decimals;
@@ -124,6 +132,8 @@ function computeAllGbPrices() {
 
 async function refreshMarket(base, quote){
 	const unlock = await mutex.lockOrSkip(['refresh_' + base + '-' + quote]);
+	if (!unlock)
+		return;
 	bRefreshing = true;
 	await refreshAsset(base);
 	await refreshAsset(quote);
@@ -320,7 +330,7 @@ async function start(){
 	app.use(cors());
 
 	await initMarkets();
-	setInterval(initMarkets, 3600 * 1000); // compute last hourly candle even when no trade happened
+	setInterval(refreshMarkets, 3600 * 1000); // compute last hourly candle even when no trade happened
 
 	app.get('/api/v1/assets', async function(request, response){
 		await waitUntilRefreshFinished();
@@ -376,10 +386,10 @@ async function start(){
 		if (assocTickersByMarketNames[marketName]){
 			await waitUntilRefreshFinished();
 
-		const rows = await db.query("SELECT quote_qty AS quote_volume,base_qty AS base_volume,highest_price,lowest_price,open_price,close_price,start_timestamp\n\
-		FROM " + period +"_candles WHERE start_timestamp>=? AND start_timestamp<? AND quote=? AND base=?", 
-		[start_time.toISOString() , end_time.toISOString(), assocTickersByMarketNames[marketName].quote_id, assocTickersByMarketNames[marketName].base_id])
-		return response.send(rows);
+			const rows = await db.query("SELECT quote_qty AS quote_volume,base_qty AS base_volume,highest_price,lowest_price,open_price,close_price,start_timestamp\n\
+			FROM " + period +"_candles WHERE start_timestamp>=? AND start_timestamp<? AND quote=? AND base=?", 
+			[start_time.toISOString() , end_time.toISOString(), assocTickersByMarketNames[marketName].quote_id, assocTickersByMarketNames[marketName].base_id])
+			return response.send(rows);
 		}
 		else
 			return response.status(400).send('Unknown market');
