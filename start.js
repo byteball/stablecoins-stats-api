@@ -186,10 +186,17 @@ function getTriggerUnitData(objTriggerUnit){
 	return {};
 }
 
-
+function replaceConsoleLog(){
+	var clog = console.log;
+	console.log = function(){
+		Array.prototype.unshift.call(arguments, new Date().toISOString()+':');
+		clog.apply(null, arguments);
+	}
+}
 
 
 async function start(){
+	replaceConsoleLog();
 	await sqlite_tables.create();
 	await lookForExistingStablecoins();
 	
