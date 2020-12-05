@@ -221,7 +221,9 @@ async function reprocessTrades(){
 }
 
 async function addLightWatchedAas(){
-	network.addLightWatchedAa(conf.curve_base_aa, null, console.log);
+	conf.curve_base_aas.forEach(function(curve_base_aa){
+		network.addLightWatchedAa(curve_base_aa, null, console.log);
+	});
 	network.addLightWatchedAa(conf.token_registry_aa_address, null, console.log);
 }
 
@@ -366,7 +368,7 @@ async function saveCurveAa(objAa){
 
 function handleJustsaying(ws, subject, body) {
 	switch (subject) {
-		case 'light/aa_definition':
+		case 'light/aa_definition_saved':
 			onAADefinition(body);
 			break;
 
