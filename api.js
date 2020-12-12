@@ -37,6 +37,7 @@ async function refreshMarkets(){
 async function initAssetsCache(){
 	var rows = await db.query("SELECT * FROM bonded_assets LEFT JOIN supplies USING(asset)");
 	assocAssets = {};
+	assocAssetsBySymbols = {};
 	rows.forEach(function(row){
 		setAsset(row);
 	});
