@@ -408,6 +408,8 @@ function parseDateTime(string, bEndDate){
 	var date = null;
 	if (string.match(/^\d\d\d\d-\d\d-\d\d$/)){
 		date = new Date(Date.parse(string));
+		if (isNaN(date))
+			return null;
 		if (bEndDate)
 			date.setDate(date.getUTCDate() + 1); // make end day inclusive
 		return date;
@@ -419,6 +421,8 @@ function parseDateTime(string, bEndDate){
 	else if (string.match(/^\d+$/))
 		date = new Date(parseInt(string) / 1000);
 	else
+		return null;
+	if (isNaN(date))
 		return null;
 	if (bEndDate)
 		date.setUTCHours(date.getUTCHours() + 1); // make end hour inclusive
