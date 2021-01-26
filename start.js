@@ -17,6 +17,10 @@ eventBus.once('connected', function(ws){
 
 async function treatResponseFromDepositsAA(objResponse, objInfos){
 
+	if (objResponse.bounced)
+		return;
+	if (!objResponse.response_unit)
+		return;
 	const objTriggerUnit = await storage.readUnit(objResponse.trigger_unit);
 	if (!objTriggerUnit)
 		throw Error('trigger unit not found ' + objResponse.trigger_unit);
@@ -58,14 +62,15 @@ async function treatResponseFromDepositsAA(objResponse, objInfos){
 		} 
 	}
 
-	if (data.commit_force_close && typeof data.id == "string"){
-		const rows = await db.query("SELECT response_unit FROM aa_responses WHERE trigger_unit=? AND aa_address=?", [data.id, depositAaAddress])
-		if (!rows[0])
-			return console.log("deposit response unit not found")
-		const depositResponseUnit = await await getJointFromStorageOrHub(rows[0].response_unit);
-		if (!depositResponseUnit)
-			throw Error('trigger unit not found ' + data.id);
-		stable_amount_to_aa = getAmountFromAa(depositResponseUnit, depositAaAddress, stable_asset);  // the amount to AA is the same as the amount that was initially minted
+	if (data.commit_force_close && typeof data.id == "string" && !stable_amount_to_aa){
+	//	const rows = await db.query("SELECT response_unit FROM aa_responses WHERE trigger_unit=? AND aa_address=?", [data.id, depositAaAddress])
+	//	if (!rows[0])
+	//		return console.log("deposit response unit not found")
+	//	const depositResponseUnit = await await getJointFromStorageOrHub(rows[0].response_unit);
+	//	if (!depositResponseUnit)
+	//		throw Error('trigger unit not found ' + data.id);
+	//	stable_amount_to_aa = getAmountFromAa(depositResponseUnit, depositAaAddress, stable_asset);  // the amount to AA is the same as the amount that was initially minted
+		stable_amount_to_aa = depositAaVars['deposit_' + data.id].stable_amount + depositAaVars['deposit_' + data.id + '_force_close'].interest;
 		await db.query("REPLACE INTO trades (response_unit, base, quote, base_qty, quote_qty, type, timestamp) VALUES (?,?,?,?,?,?,?)", 
 		[objResponse.response_unit, stable_asset, interest_asset, stable_amount_to_aa , interest_amount_from_aa, 'sell', timestamp]);
 		await saveSupplyForAsset(stable_asset, supply);
