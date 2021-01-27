@@ -70,7 +70,10 @@ async function treatResponseFromDepositsAA(objResponse, objInfos){
 	//	if (!depositResponseUnit)
 	//		throw Error('trigger unit not found ' + data.id);
 	//	stable_amount_to_aa = getAmountFromAa(depositResponseUnit, depositAaAddress, stable_asset);  // the amount to AA is the same as the amount that was initially minted
-		stable_amount_to_aa = depositAaVars['deposit_' + data.id].stable_amount + depositAaVars['deposit_' + data.id + '_force_close'].interest;
+		const curveAaVars = await getStateVars(objInfos.curve_aa);
+		const term = (objResponseUnit.timestamp - curveAaVars.rate_update_ts) / (360 * 24 * 3600); // in years
+		const growth_factor = curveAaVars.growth_factor * (1 + curveAaVars.interest_rate) ** term;
+		stable_amount_to_aa = Math.round(interest_amount_from_aa * growth_factor);
 		await db.query("REPLACE INTO trades (response_unit, base, quote, base_qty, quote_qty, type, timestamp) VALUES (?,?,?,?,?,?,?)", 
 		[objResponse.response_unit, stable_asset, interest_asset, stable_amount_to_aa , interest_amount_from_aa, 'sell', timestamp]);
 		await saveSupplyForAsset(stable_asset, supply);
@@ -136,7 +139,7 @@ async function onAaResponse(objResponse){
 	if (rows[0])
 		return treatResponseFromCurveAA(objResponse, rows[0]);
 
-	rows = await db.query("SELECT deposits_aas.address AS deposits_aa, deposits_aas.address AS curve_aa,* FROM deposits_aas \n\
+	rows = await db.query("SELECT deposits_aas.address AS deposits_aa, curve_aa, * FROM deposits_aas \n\
 	INNER JOIN curve_aas ON deposits_aas.curve_aa=curve_aas.address WHERE deposits_aas.address=?",[aa_address]);
 	if (rows[0])
 		return treatResponseFromDepositsAA(objResponse, rows[0]);
