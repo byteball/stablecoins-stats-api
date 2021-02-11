@@ -232,6 +232,7 @@ async function addLightWatchedAas(){
 	conf.curve_base_aas.forEach(function(curve_base_aa){
 		network.addLightWatchedAa(curve_base_aa, null, console.log);
 	});
+	network.addLightWatchedAa(conf.deposit_base_aa, null, console.log);
 	network.addLightWatchedAa(conf.token_registry_aa_address, null, console.log);
 }
 
