@@ -310,21 +310,15 @@ async function saveAndwatchDepositsAa(objAa){
 }
 
 
-function saveDepositsAa(objAa){
-	return new Promise(async (resolve)=>{
-		const depositsAaAddress = objAa.address;
-		const curveAaAddress = objAa.definition[1].params.curve_aa;
-		const vars = await dag.readAAStateVars(depositsAaAddress);
-		const asset = vars['asset'];
-		if (!asset)
-			return setTimeout(function(){ 
-				console.log("no asset var for " + depositsAaAddress + ", will retry");
-				saveDepositsAa(objAa).then(resolve) 
-			}, 1000);
-		await db.query("INSERT " + db.getIgnore() + " INTO deposits_aas (address, stable_asset, curve_aa) VALUES (?,?,?)", [depositsAaAddress, asset, curveAaAddress]);
-		await saveSymbolForAsset(asset);
-		resolve();
-	});
+async function saveDepositsAa(objAa) {
+	const depositsAaAddress = objAa.address;
+	const curveAaAddress = objAa.definition[1].params.curve_aa;
+	const vars = await dag.readAAStateVars(depositsAaAddress);
+	const asset = vars['asset'];
+	if (!asset)
+		throw Error(`no asset on deposit AA ${depositsAaAddress}`);
+	await db.query("INSERT " + db.getIgnore() + " INTO deposits_aas (address, stable_asset, curve_aa) VALUES (?,?,?)", [depositsAaAddress, asset, curveAaAddress]);
+	await saveSymbolForAsset(asset);
 }
 
 
@@ -426,26 +420,22 @@ async function refreshSymbols(){
 
 
 
-async function saveCurveAa(objAa){
-	return new Promise(async (resolve)=>{
+async function saveCurveAa(objAa) {
+	const curveAaAddress = objAa.address;
+	const reserve_asset = objAa.definition[1].params.reserve_asset;
+	const asset1Decimals = objAa.definition[1].params.decimals1;
+	const asset2Decimals = objAa.definition[1].params.decimals2;
+	const reserveDecimals = objAa.definition[1].params.reserve_asset_decimals;
+	const curveAaVars = await dag.readAAStateVars(curveAaAddress);
+	const asset1 = curveAaVars.asset1;
+	const asset2 = curveAaVars.asset2;
 
-		const curveAaAddress = objAa.address;
-		const reserve_asset = objAa.definition[1].params.reserve_asset;
-		const asset1Decimals = objAa.definition[1].params.decimals1;
-		const asset2Decimals = objAa.definition[1].params.decimals2;
-		const reserveDecimals = objAa.definition[1].params.reserve_asset_decimals;
-		const curveAaVars = await dag.readAAStateVars(curveAaAddress);
-		const asset1 = curveAaVars.asset1;
-		const asset2 = curveAaVars.asset2;
-
-		if (!asset1 || !asset2)
-			return setTimeout(function(){ saveCurveAa(objAa).then(resolve) }, 1000);
-		await db.query("INSERT " + db.getIgnore() + " INTO curve_aas (address, asset_1, asset_2, reserve_asset, asset_1_decimals, asset_2_decimals,reserve_decimals) \n\
-		VALUES (?,?,?,?,?,?,?)", 
-		[curveAaAddress, asset1, asset2, reserve_asset, asset1Decimals, asset2Decimals, reserveDecimals]);
-		await Promise.all([saveSymbolForAsset(reserve_asset), saveSymbolForAsset(asset1), saveSymbolForAsset(asset2)]);
-		resolve();
-	})
+	if (!asset1 || !asset2)
+		throw Error(`no assets on curve AA ${curveAaAddress}`);
+	await db.query("INSERT " + db.getIgnore() + " INTO curve_aas (address, asset_1, asset_2, reserve_asset, asset_1_decimals, asset_2_decimals,reserve_decimals) \n\
+	VALUES (?,?,?,?,?,?,?)", 
+	[curveAaAddress, asset1, asset2, reserve_asset, asset1Decimals, asset2Decimals, reserveDecimals]);
+	await Promise.all([saveSymbolForAsset(reserve_asset), saveSymbolForAsset(asset1), saveSymbolForAsset(asset2)]);
 }
 
 function handleJustsaying(ws, subject, body) {
