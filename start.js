@@ -303,7 +303,7 @@ function discoverDepositAas(){
 			const allAaAddresses = arrResponse.map(obj => obj.address);
 			const rows = await db.query("SELECT address FROM deposits_aas WHERE address IN("+ allAaAddresses.map(db.escape).join(',')+")");
 			const knownAaAddresses = rows.map(obj => obj.address);
-			const newDepositAas = arrResponse.filter(address => !knownAaAddresses.includes(address))
+			const newDepositAas = arrResponse.filter(obj => !knownAaAddresses.includes(obj.address))
 			await Promise.all(newDepositAas.map(saveAndwatchDepositsAa));
 			resolve();
 		});
@@ -385,7 +385,7 @@ function discoverCurveAasForBase(base_aa){
 			const allAaAddresses = arrResponse.map(obj => obj.address);
 			const rows = await db.query("SELECT address FROM curve_aas WHERE address IN("+ allAaAddresses.map(db.escape).join(',')+")");
 			const knownAaAddresses = rows.map(obj => obj.address);
-			const newCurveAas = arrResponse.filter(address => !knownAaAddresses.includes(address))
+			const newCurveAas = arrResponse.filter(obj => !knownAaAddresses.includes(obj.address))
 			await Promise.all(newCurveAas.map(saveAndwatchCurveAa));
 			resolve();
 		});
