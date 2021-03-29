@@ -17,8 +17,6 @@ eventBus.once('connected', function(ws){
 
 async function treatResponseFromDepositsAA(objResponse, objInfos){
 
-	if (objResponse.bounced)
-		return;
 	if (!objResponse.response_unit)
 		return;
 	const objTriggerUnit = await storage.readUnit(objResponse.trigger_unit);
@@ -26,7 +24,7 @@ async function treatResponseFromDepositsAA(objResponse, objInfos){
 		throw Error('trigger unit not found ' + objResponse.trigger_unit);
 	const data = getTriggerUnitData(objTriggerUnit);
 
-	const objResponseUnit = objResponse.response_unit ? await getJointFromStorageOrHub(objResponse.response_unit) : null;
+	const objResponseUnit = await getJointFromStorageOrHub(objResponse.response_unit);
 	const depositAaAddress = objInfos.deposits_aa;
 	const interest_asset = objInfos.asset_2;
 	const stable_asset = objInfos.stable_asset;
@@ -84,8 +82,6 @@ async function treatResponseFromDepositsAA(objResponse, objInfos){
 
 async function treatResponseFromStableAA(objResponse, objInfos){
 
-	if (objResponse.bounced)
-		return;
 	if (!objResponse.response_unit)
 		return;
 	const objTriggerUnit = await storage.readUnit(objResponse.trigger_unit);
@@ -93,7 +89,7 @@ async function treatResponseFromStableAA(objResponse, objInfos){
 		throw Error('trigger unit not found ' + objResponse.trigger_unit);
 	const data = getTriggerUnitData(objTriggerUnit);
 
-	const objResponseUnit = objResponse.response_unit ? await getJointFromStorageOrHub(objResponse.response_unit) : null;
+	const objResponseUnit = await getJointFromStorageOrHub(objResponse.response_unit);
 	const stableAaAddress = objResponse.aa_address;
 	const interest_asset = objInfos.asset_2;
 	const stable_asset = objInfos.stable_asset;
@@ -134,11 +130,12 @@ async function treatResponseFromStableAA(objResponse, objInfos){
 
 async function treatResponseFromCurveAA(objResponse, objInfos){
 
+	if (!objResponse.response_unit)
+		return console.log("no response");
+	
 	if (objResponse.response.responseVars && objResponse.response.responseVars.p2){
 
-		const objTriggerUnit = await await getJointFromStorageOrHub(objResponse.trigger_unit);
-		if (!objTriggerUnit)
-			throw Error('trigger unit not found ' + objResponse.trigger_unit);
+		const objTriggerUnit = await getJointFromStorageOrHub(objResponse.trigger_unit);
 	
 		const curveAaAddress = objInfos.address;
 		const reserve_asset = objInfos.reserve_asset;
@@ -146,8 +143,6 @@ async function treatResponseFromCurveAA(objResponse, objInfos){
 		const asset2 = objInfos.asset_2;
 
 		const objResponseUnit = await getJointFromStorageOrHub(objResponse.response_unit);
-		if (!objResponseUnit)
-			throw Error('response unit not found ' + objResponse.trigger_unit);
 
 		const timestamp = new Date(objResponseUnit.timestamp * 1000).toISOString();
 		const reserve_added = getAmountToAa(objTriggerUnit, curveAaAddress, reserve_asset) - getAmountFromAa(objResponseUnit, curveAaAddress, reserve_asset); // can be negative
@@ -583,17 +578,19 @@ function getStateVars(aa_address){
 }
 
 function getJointFromStorageOrHub(unit){
-	return new Promise(async (resolve) => {
+	return new Promise(async (resolve, reject) => {
 
-		var joint = await storage.readUnit(unit);
-		if (joint)
-			return resolve(joint);
+		var objUnit = await storage.readUnit(unit);
+		if (objUnit)
+			return resolve(objUnit);
+		if (!conf.bLight)
+			return reject(`unit not found: ${unit}`);
 		const network = require('ocore/network.js');
 		network.requestFromLightVendor('get_joint', unit,  function(ws, request, response){
 			if (response.joint){
 				resolve(response.joint.unit)
 			} else {
-				resolve();
+				reject(`unit not found: ${unit}`);
 			}
 		});
 	});
