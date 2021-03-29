@@ -295,26 +295,18 @@ async function lookForExistingStablecoins(){
 }
 
 
-function discoverDepositAas(){
-	return new Promise(function(resolve){
-		network.requestFromLightVendor('light/get_aas_by_base_aas', {
-			base_aa: conf.deposit_base_aa
-		}, async function(ws, request, arrResponse){
-			const allAaAddresses = arrResponse.map(obj => obj.address);
-			const rows = await db.query("SELECT address FROM deposits_aas WHERE address IN("+ allAaAddresses.map(db.escape).join(',')+")");
-			const knownAaAddresses = rows.map(obj => obj.address);
-			const newDepositAas = arrResponse.filter(obj => !knownAaAddresses.includes(obj.address))
-			await Promise.all(newDepositAas.map(saveAndwatchDepositsAa));
-			resolve();
-		});
-	})
+async function discoverDepositAas() {
+	const arrResponse = await dag.getAAsByBaseAAs(conf.deposit_base_aa);
+	const allAaAddresses = arrResponse.map(obj => obj.address);
+	const rows = await db.query("SELECT address FROM deposits_aas WHERE address IN("+ allAaAddresses.map(db.escape).join(',')+")");
+	const knownAaAddresses = rows.map(obj => obj.address);
+	const newDepositAas = arrResponse.filter(obj => !knownAaAddresses.includes(obj.address))
+	await Promise.all(newDepositAas.map(saveAndwatchDepositsAa));
 }
 
 async function saveAndwatchDepositsAa(objAa){
-	return new Promise(async function(resolve){
-		await saveDepositsAa(objAa);
-		walletGeneral.addWatchedAddress(objAa.address, resolve);
-	});
+	await saveDepositsAa(objAa);
+	walletGeneral.addWatchedAddress(objAa.address);
 }
 
 
@@ -336,19 +328,13 @@ function saveDepositsAa(objAa){
 }
 
 
-function discoverStableAas(){
-	return new Promise(function(resolve){
-		network.requestFromLightVendor('light/get_aas_by_base_aas', {
-			base_aa: conf.stable_base_aa
-		}, async function(ws, request, arrResponse){
-			const allAaAddresses = arrResponse.map(obj => obj.address);
-			const rows = await db.query("SELECT address FROM stable_aas WHERE address IN("+ allAaAddresses.map(db.escape).join(',')+")");
-			const knownAaAddresses = rows.map(obj => obj.address);
-			const newStableAas = arrResponse.filter(obj => !knownAaAddresses.includes(obj.address))
-			await Promise.all(newStableAas.map(saveAndWatchStableAa));
-			resolve();
-		});
-	})
+async function discoverStableAas() {
+	const arrResponse = await dag.getAAsByBaseAAs(conf.stable_base_aa);
+	const allAaAddresses = arrResponse.map(obj => obj.address);
+	const rows = await db.query("SELECT address FROM stable_aas WHERE address IN("+ allAaAddresses.map(db.escape).join(',')+")");
+	const knownAaAddresses = rows.map(obj => obj.address);
+	const newStableAas = arrResponse.filter(obj => !knownAaAddresses.includes(obj.address))
+	await Promise.all(newStableAas.map(saveAndWatchStableAa));
 }
 
 async function saveAndWatchStableAa(objAa){
@@ -374,30 +360,17 @@ async function saveStableAa(objAa) {
 
 
 async function discoverCurveAas(){
-	await Promise.all(conf.curve_base_aas.map(discoverCurveAasForBase));
+	const arrResponse = await dag.getAAsByBaseAAs(conf.curve_base_aas);
+	const allAaAddresses = arrResponse.map(obj => obj.address);
+	const rows = await db.query("SELECT address FROM curve_aas WHERE address IN("+ allAaAddresses.map(db.escape).join(',')+")");
+	const knownAaAddresses = rows.map(obj => obj.address);
+	const newCurveAas = arrResponse.filter(obj => !knownAaAddresses.includes(obj.address))
+	await Promise.all(newCurveAas.map(saveAndwatchCurveAa));
 }
-
-function discoverCurveAasForBase(base_aa){
-	return new Promise((resolve)=>{
-		network.requestFromLightVendor('light/get_aas_by_base_aas', {
-			base_aa
-		}, async function(ws, request, arrResponse){
-			const allAaAddresses = arrResponse.map(obj => obj.address);
-			const rows = await db.query("SELECT address FROM curve_aas WHERE address IN("+ allAaAddresses.map(db.escape).join(',')+")");
-			const knownAaAddresses = rows.map(obj => obj.address);
-			const newCurveAas = arrResponse.filter(obj => !knownAaAddresses.includes(obj.address))
-			await Promise.all(newCurveAas.map(saveAndwatchCurveAa));
-			resolve();
-		});
-	})
-}
-
 
 async function saveAndwatchCurveAa(objAa){
-	return new Promise(async function(resolve){
-		await saveCurveAa(objAa);
-		walletGeneral.addWatchedAddress(objAa.address, resolve);
-	});
+	await saveCurveAa(objAa);
+	walletGeneral.addWatchedAddress(objAa.address);
 }
 
 async function saveSupplyForAsset(asset, supply){
