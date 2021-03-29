@@ -82,6 +82,56 @@ async function treatResponseFromDepositsAA(objResponse, objInfos){
 	
 }
 
+async function treatResponseFromStableAA(objResponse, objInfos){
+
+	if (objResponse.bounced)
+		return;
+	if (!objResponse.response_unit)
+		return;
+	const objTriggerUnit = await storage.readUnit(objResponse.trigger_unit);
+	if (!objTriggerUnit)
+		throw Error('trigger unit not found ' + objResponse.trigger_unit);
+	const data = getTriggerUnitData(objTriggerUnit);
+
+	const objResponseUnit = objResponse.response_unit ? await getJointFromStorageOrHub(objResponse.response_unit) : null;
+	const stableAaAddress = objResponse.aa_address;
+	const interest_asset = objInfos.asset_2;
+	const stable_asset = objInfos.stable_asset;
+
+	const stable_amount_from_aa =  getAmountFromAa(objResponseUnit, stableAaAddress, stable_asset);
+
+	const interest_amount_to_aa = getAmountToAa(objTriggerUnit, stableAaAddress, interest_asset);
+	const interest_amount_from_aa =  getAmountFromAa(objResponseUnit, stableAaAddress, interest_asset);
+
+	const timestamp = objResponseUnit ? new Date(objResponseUnit.timestamp * 1000).toISOString() : null;
+
+	const stableAaVars = process.env.reprocess ? {} : await getStateVars(stableAaAddress); // we don't refresh supply when reprocessing
+	const supply = stableAaVars.supply;
+
+	// interest -> stable
+	if (interest_amount_to_aa > 0 && stable_amount_from_aa > 0){
+
+		await db.query("REPLACE INTO trades (response_unit, base, quote, base_qty, quote_qty, type, timestamp) VALUES (?,?,?,?,?,?,?)", 
+		[objResponse.response_unit, stable_asset, interest_asset, stable_amount_from_aa, interest_amount_to_aa, 'buy', timestamp]);
+		await saveSupplyForAsset(stable_asset, supply); // only stable asset supply changes, interest asset is only locked
+		return api.refreshMarket(stable_asset, interest_asset);
+	
+	} 
+
+	// stable -> interest
+	var stable_amount_to_aa = getAmountToAa(objTriggerUnit, stableAaAddress, stable_asset);
+	if (stable_amount_to_aa > 0 && interest_amount_from_aa > 0){
+		if (interest_amount_from_aa > 0){
+			await db.query("REPLACE INTO trades (response_unit, base, quote, base_qty, quote_qty, type, timestamp) VALUES (?,?,?,?,?,?,?)", 
+			[objResponse.response_unit, stable_asset, interest_asset, stable_amount_to_aa, interest_amount_from_aa, 'sell', timestamp]);
+			await saveSupplyForAsset(stable_asset, supply); 
+			return api.refreshMarket(stable_asset, interest_asset);
+		} 
+	}
+
+	
+}
+
 async function treatResponseFromCurveAA(objResponse, objInfos){
 
 	if (objResponse.response.responseVars && objResponse.response.responseVars.p2){
@@ -143,6 +193,11 @@ async function onAaResponse(objResponse){
 	INNER JOIN curve_aas ON deposits_aas.curve_aa=curve_aas.address WHERE deposits_aas.address=?",[aa_address]);
 	if (rows[0])
 		return treatResponseFromDepositsAA(objResponse, rows[0]);
+
+	rows = await db.query("SELECT stable_aas.address AS stable_aa, curve_aa, * FROM stable_aas \n\
+	INNER JOIN curve_aas ON stable_aas.curve_aa=curve_aas.address WHERE stable_aas.address=?",[aa_address]);
+	if (rows[0])
+		return treatResponseFromStableAA(objResponse, rows[0]);
 
 }
 
@@ -233,12 +288,14 @@ async function addLightWatchedAas(){
 		network.addLightWatchedAa(curve_base_aa, null, console.log);
 	});
 	network.addLightWatchedAa(conf.deposit_base_aa, null, console.log);
+	network.addLightWatchedAa(conf.stable_base_aa, null, console.log);
 	network.addLightWatchedAa(conf.token_registry_aa_address, null, console.log);
 }
 
 async function lookForExistingStablecoins(){
 	await discoverCurveAas();
 	await discoverDepositAas();
+	await discoverStableAas();
 }
 
 
@@ -281,6 +338,44 @@ function saveDepositsAa(objAa){
 		resolve();
 	});
 }
+
+
+function discoverStableAas(){
+	return new Promise(function(resolve){
+		network.requestFromLightVendor('light/get_aas_by_base_aas', {
+			base_aa: conf.stable_base_aa
+		}, async function(ws, request, arrResponse){
+			const allAaAddresses = arrResponse.map(obj => obj.address);
+			const rows = await db.query("SELECT address FROM stable_aas WHERE address IN("+ allAaAddresses.map(db.escape).join(',')+")");
+			const knownAaAddresses = rows.map(obj => obj.address);
+			const newStableAas = arrResponse.filter(obj => !knownAaAddresses.includes(obj.address))
+			await Promise.all(newStableAas.map(saveAndWatchStableAa));
+			resolve();
+		});
+	})
+}
+
+async function saveAndWatchStableAa(objAa){
+	await saveStableAa(objAa);
+	walletGeneral.addWatchedAddress(objAa.address);
+}
+
+
+async function saveStableAa(objAa) {
+	const stableAaAddress = objAa.address;
+	const curveAaAddress = objAa.definition[1].params.curve_aa;
+	const vars = await getStateVars(stableAaAddress);
+	const asset = vars['asset'];
+	if (!asset) {
+		console.log("no asset var for " + stableAaAddress + ", will retry");
+		await wait(1000);
+		return await saveStableAa(objAa);
+	}
+	await db.query("INSERT " + db.getIgnore() + " INTO stable_aas (address, stable_asset, curve_aa) VALUES (?,?,?)", [stableAaAddress, asset, curveAaAddress]);
+	await saveSymbolForAsset(asset);
+}
+
+
 
 async function discoverCurveAas(){
 	await Promise.all(conf.curve_base_aas.map(discoverCurveAasForBase));
@@ -344,8 +439,17 @@ async function saveSymbolForAsset(asset){
 }
 
 async function refreshSymbols(){
-	const rows = await db.query("SELECT stable_asset AS asset FROM deposits_aas UNION SELECT DISTINCT reserve_asset AS asset FROM curve_aas \n\
-	UNION SELECT asset_1 AS asset FROM curve_aas UNION SELECT asset_2 AS asset FROM curve_aas");
+	const rows = await db.query(`
+		SELECT stable_asset AS asset FROM deposits_aas
+		UNION
+		SELECT stable_asset AS asset FROM stable_aas
+		UNION
+		SELECT DISTINCT reserve_asset AS asset FROM curve_aas
+		UNION
+		SELECT asset_1 AS asset FROM curve_aas
+		UNION
+		SELECT asset_2 AS asset FROM curve_aas
+	`);
 	for (var i=0; i < rows.length; i++)
 		await saveSymbolForAsset(rows[i].asset);
 	api.initMarkets();
@@ -403,6 +507,8 @@ function onAADefinition(objUnit){
 				const base_aa = payload.definition[1].base_aa;
 				if (base_aa == conf.deposit_base_aa)
 					saveAndwatchDepositsAa({ address: objectHash.getChash160(payload.definition), definition: payload.definition });
+				if (base_aa == conf.stable_base_aa)
+					saveAndWatchStableAa({ address: objectHash.getChash160(payload.definition), definition: payload.definition });
 				if (conf.curve_base_aas.indexOf(base_aa) > -1){
 					const address = objectHash.getChash160(payload.definition);
 					const definition = payload.definition;
@@ -493,6 +599,8 @@ function getJointFromStorageOrHub(unit){
 	});
 }
 
-
+async function wait(ms) {
+	return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 process.on('unhandledRejection', up => { throw up });
