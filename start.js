@@ -463,16 +463,16 @@ function onAADefinition(objUnit){
 		var message = objUnit.messages[i];
 		var payload = message.payload;
 		if (message.app === 'definition' && payload.definition[1].base_aa){
-				const base_aa = payload.definition[1].base_aa;
-				if (base_aa == conf.deposit_base_aa)
-					saveAndwatchDepositsAa({ address: objectHash.getChash160(payload.definition), definition: payload.definition });
-				if (base_aa == conf.stable_base_aa)
-					saveAndWatchStableAa({ address: objectHash.getChash160(payload.definition), definition: payload.definition });
-				if (conf.curve_base_aas.indexOf(base_aa) > -1){
-					const address = objectHash.getChash160(payload.definition);
-					const definition = payload.definition;
-					saveAndwatchCurveAa({ address, definition });
-				}
+			const base_aa = payload.definition[1].base_aa;
+			if (base_aa == conf.deposit_base_aa)
+				saveAndwatchDepositsAa({ address: objectHash.getChash160(payload.definition), definition: payload.definition });
+			if (base_aa == conf.stable_base_aa)
+				saveAndWatchStableAa({ address: objectHash.getChash160(payload.definition), definition: payload.definition });
+			if (conf.curve_base_aas.indexOf(base_aa) > -1){
+				const address = objectHash.getChash160(payload.definition);
+				const definition = payload.definition;
+				saveAndwatchCurveAa({ address, definition });
+			}
 		}
 	}
 }
