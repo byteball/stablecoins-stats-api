@@ -7,6 +7,7 @@ const walletGeneral = require('ocore/wallet_general.js');
 const objectHash = require('ocore/object_hash.js');
 const sqlite_tables = require('./sqlite_tables.js');
 const db = require('ocore/db.js');
+const dag = require('aabot/dag.js');
 const api = require('./api.js');
 
 lightWallet.setLightVendorHost(conf.hub);
@@ -36,7 +37,7 @@ async function treatResponseFromDepositsAA(objResponse, objInfos){
 
 	const timestamp = objResponseUnit ? new Date(objResponseUnit.timestamp * 1000).toISOString() : null;
 
-	const depositAaVars = process.env.reprocess ? {} : await getStateVars(depositAaAddress); // we don't refresh supply when reprocessing
+	const depositAaVars = process.env.reprocess ? {} : await dag.readAAStateVars(depositAaAddress); // we don't refresh supply when reprocessing
 	const supply = depositAaVars.supply;
 
 
@@ -68,7 +69,7 @@ async function treatResponseFromDepositsAA(objResponse, objInfos){
 	//	if (!depositResponseUnit)
 	//		throw Error('trigger unit not found ' + data.id);
 	//	stable_amount_to_aa = getAmountFromAa(depositResponseUnit, depositAaAddress, stable_asset);  // the amount to AA is the same as the amount that was initially minted
-		const curveAaVars = await getStateVars(objInfos.curve_aa);
+		const curveAaVars = await dag.readAAStateVars(objInfos.curve_aa);
 		const term = (objResponseUnit.timestamp - curveAaVars.rate_update_ts) / (360 * 24 * 3600); // in years
 		const growth_factor = curveAaVars.growth_factor * (1 + curveAaVars.interest_rate) ** term;
 		stable_amount_to_aa = Math.round(interest_amount_from_aa * growth_factor);
@@ -101,7 +102,7 @@ async function treatResponseFromStableAA(objResponse, objInfos){
 
 	const timestamp = objResponseUnit ? new Date(objResponseUnit.timestamp * 1000).toISOString() : null;
 
-	const stableAaVars = process.env.reprocess ? {} : await getStateVars(stableAaAddress); // we don't refresh supply when reprocessing
+	const stableAaVars = process.env.reprocess ? {} : await dag.readAAStateVars(stableAaAddress); // we don't refresh supply when reprocessing
 	const supply = stableAaVars.supply;
 
 	// interest -> stable
@@ -152,7 +153,7 @@ async function treatResponseFromCurveAA(objResponse, objInfos){
 		const reserveTradedForAsset2 = asset1_added !== 0 ? (objResponse.response.responseVars.p2 * 10 ** (objInfos.reserve_decimals - objInfos.asset_2_decimals) * asset2_added) : reserve_added;
 		const reserveTradedForAsset1 = reserve_added - reserveTradedForAsset2;
 
-		const curveAaVars =  process.env.reprocess ? {} : await getStateVars(curveAaAddress);
+		const curveAaVars =  process.env.reprocess ? {} : await dag.readAAStateVars(curveAaAddress);
 		const supply1 = curveAaVars.supply1;
 		const supply2 = curveAaVars.supply2;
 
@@ -321,7 +322,7 @@ function saveDepositsAa(objAa){
 	return new Promise(async (resolve)=>{
 		const depositsAaAddress = objAa.address;
 		const curveAaAddress = objAa.definition[1].params.curve_aa;
-		const vars = await getStateVars(depositsAaAddress);
+		const vars = await dag.readAAStateVars(depositsAaAddress);
 		const asset = vars['asset'];
 		if (!asset)
 			return setTimeout(function(){ 
@@ -359,7 +360,7 @@ async function saveAndWatchStableAa(objAa){
 async function saveStableAa(objAa) {
 	const stableAaAddress = objAa.address;
 	const curveAaAddress = objAa.definition[1].params.curve_aa;
-	const vars = await getStateVars(stableAaAddress);
+	const vars = await dag.readAAStateVars(stableAaAddress);
 	const asset = vars['asset'];
 	if (!asset) {
 		console.log("no asset var for " + stableAaAddress + ", will retry");
@@ -460,7 +461,7 @@ async function saveCurveAa(objAa){
 		const asset1Decimals = objAa.definition[1].params.decimals1;
 		const asset2Decimals = objAa.definition[1].params.decimals2;
 		const reserveDecimals = objAa.definition[1].params.reserve_asset_decimals;
-		const curveAaVars = await getStateVars(curveAaAddress);
+		const curveAaVars = await dag.readAAStateVars(curveAaAddress);
 		const asset1 = curveAaVars.asset1;
 		const asset2 = curveAaVars.asset2;
 
@@ -517,7 +518,7 @@ function onAADefinition(objUnit){
 function getStateVarsForPrefixes(aa_address, arrPrefixes){
 	return new Promise(function(resolve){
 		Promise.all(arrPrefixes.map((prefix)=>{
-			return getStateVarsForPrefix(aa_address, prefix)
+			return dag.readAAStateVars(aa_address, prefix)
 		})).then((arrResults)=>{
 			return resolve(Object.assign({}, ...arrResults));
 		}).catch((error)=>{
@@ -526,56 +527,6 @@ function getStateVarsForPrefixes(aa_address, arrPrefixes){
 	});
 }
 
-function getStateVarsForPrefix(aa_address, prefix, start = '0', end = 'z', firstCall = true){
-	return new Promise(function(resolve, reject){
-		if (firstCall)
-			prefix = prefix.slice(0, -1);
-		const CHUNK_SIZE = 2000; // server wouldn't accept higher chunk size
-
-		if (start === end)
-			return getStateVarsForPrefix(aa_address, prefix + start,  '0', 'z').then(resolve).catch(reject); // we append prefix to split further
-
-		network.requestFromLightVendor('light/get_aa_state_vars', {
-			address: aa_address,
-			var_prefix_from: prefix + start,
-			var_prefix_to: prefix + end,
-			limit: CHUNK_SIZE
-		}, function(ws, request, objResponse){
-			if (objResponse.error)
-				return reject(objResponse.error);
-
-			if (Object.keys(objResponse).length >= CHUNK_SIZE){ // we reached the limit, let's split in two ranges and try again
-				const delimiter =  Math.floor((end.charCodeAt(0) - start.charCodeAt(0)) / 2 + start.charCodeAt(0));
-				Promise.all([
-					getStateVarsForPrefix(aa_address, prefix, start, String.fromCharCode(delimiter), false),
-					getStateVarsForPrefix(aa_address, prefix, String.fromCharCode(delimiter +1), end, false)
-				]).then(function(results){
-					return resolve({...results[0], ...results[1]});
-				}).catch(function(error){
-					return reject(error);
-				})
-			} else{
-				return resolve(objResponse);
-			}
-
-		});
-	});
-}
-
-
-function getStateVars(aa_address){
-	return new Promise((resolve)=>{
-		network.requestFromLightVendor('light/get_aa_state_vars', {
-			address: aa_address
-		}, function(ws, request, objResponse){
-			if (objResponse.error){
-				console.log("Error when requesting state vars for " + aa_address + ": " + objResponse.error);
-				resolve({});
-			} else
-				resolve(objResponse);
-		});
-	});
-}
 
 function getJointFromStorageOrHub(unit){
 	return new Promise(async (resolve, reject) => {
