@@ -12,10 +12,13 @@ const dag = require('aabot/dag.js');
 const api = require('./api.js');
 
 lightWallet.setLightVendorHost(conf.hub);
+start();
 
+/*
 eventBus.once('connected', function(ws){
 	network.initWitnessesIfNecessary(ws, start);
 });
+*/
 
 async function treatResponseFromDepositsAA(objResponse, objInfos){
 
