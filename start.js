@@ -391,7 +391,7 @@ async function start(){
 }
 
 async function reprocessTrades(){
-	const rows = await db.query("SELECT response,trigger_unit,response_unit,aa_address FROM aa_responses ORDER BY aa_response_id ASC; ");
+	const rows = await db.query("SELECT response, trigger_unit, trigger_address, response_unit, aa_address FROM aa_responses ORDER BY aa_response_id ASC; ");
 	for (var i=0; i<rows.length; i++){
 		rows[i].response = JSON.parse(rows[i].response);
 		console.log('reprocess ' + rows[i].trigger_unit);
