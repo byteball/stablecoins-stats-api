@@ -371,11 +371,13 @@ async function start(){
 	await sqlite_tables.create();
 
 	// instead of handling multiple chaotically ordered 'new_address' events, get the entire history in refreshLightClientHistory() after all addresses are added
-//	lightWallet.bRefreshHistoryOnNewAddress = false;
+	lightWallet.bRefreshHistoryOnNewAddress = false;
+	lightWallet.bRefreshFullHistory = false;
 	await lookForExistingStablecoins();
 	await wait(100);
 	console.log("found all existing AAs");
-//	lightWallet.bRefreshHistoryOnNewAddress = true;
+	lightWallet.bRefreshHistoryOnNewAddress = true;
+	lightWallet.bRefreshFullHistory = true;
 	
 	if (process.env.reprocess){
 		await reprocessTrades();
