@@ -20,6 +20,7 @@ const unifiedCryptoAssetIdsByAssets = {
 	}
 }
 
+let bCatchingUp = true;
 var bRefreshing = false;
 
 async function initMarkets(){
@@ -132,6 +133,8 @@ function computeAllGbPrices() {
 
 
 async function refreshMarket(base, quote){
+	if (bCatchingUp)
+		return console.log(`catching up, won't refresh ${base}-${quote}`);
 	const unlock = await mutex.lockOrSkip(['refresh_' + base + '-' + quote]);
 	if (!unlock)
 		return;
@@ -330,6 +333,7 @@ async function start(){
 	const server = require('http').Server(app);
 	app.use(cors());
 
+	bCatchingUp = false;
 	await initMarkets();
 	setInterval(refreshMarkets, 3600 * 1000); // compute last hourly candle even when no trade happened
 

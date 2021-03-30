@@ -7,6 +7,7 @@ const walletGeneral = require('ocore/wallet_general.js');
 const objectHash = require('ocore/object_hash.js');
 const sqlite_tables = require('./sqlite_tables.js');
 const db = require('ocore/db.js');
+const mutex = require('ocore/mutex.js');
 const dag = require('aabot/dag.js');
 const api = require('./api.js');
 
@@ -267,27 +268,38 @@ eventBus.on('aa_response', onAaResponse);
 async function onAaResponse(objResponse){
 	if(objResponse.response.error)
 		return console.log('ignored response with error: ' + objResponse.response.error);
+	
+	const unlock = await mutex.lock('AAResponse');
 	const aa_address = objResponse.aa_address;
 
 	var rows = await db.query("SELECT * FROM curve_aas WHERE address=?",[aa_address]);
-	if (rows[0])
-		return treatResponseFromCurveAA(objResponse, rows[0]);
+	if (rows[0]) {
+		await treatResponseFromCurveAA(objResponse, rows[0]);
+		return unlock();
+	}
 
 	rows = await db.query("SELECT deposits_aas.address AS deposits_aa, curve_aa, stable_asset, asset_2 FROM deposits_aas \n\
 	INNER JOIN curve_aas ON deposits_aas.curve_aa=curve_aas.address WHERE deposits_aas.address=?",[aa_address]);
-	if (rows[0])
-		return treatResponseFromDepositsAA(objResponse, rows[0]);
+	if (rows[0]) {
+		await treatResponseFromDepositsAA(objResponse, rows[0]);
+		return unlock();
+	}
 
 	rows = await db.query("SELECT stable_aas.address AS stable_aa, curve_aa, stable_asset, asset_2 FROM stable_aas \n\
 	INNER JOIN curve_aas ON stable_aas.curve_aa=curve_aas.address WHERE stable_aas.address=?",[aa_address]);
-	if (rows[0])
-		return treatResponseFromStableAA(objResponse, rows[0]);
+	if (rows[0]) {
+		await treatResponseFromStableAA(objResponse, rows[0]);
+		return unlock();
+	}
 
 	rows = await db.query("SELECT fund_aas.address AS fund_aa, curve_aa, shares_asset, asset_1, reserve_asset FROM fund_aas \n\
 	INNER JOIN curve_aas ON fund_aas.curve_aa=curve_aas.address WHERE fund_aas.address=?", [aa_address]);
-	if (rows[0])
-		return treatResponseFromFundAA(objResponse, rows[0]);
+	if (rows[0]) {
+		await treatResponseFromFundAA(objResponse, rows[0]);
+		return unlock();
+	}
 
+	unlock();
 }
 
 
@@ -374,7 +386,7 @@ async function start(){
 	lightWallet.bRefreshHistoryOnNewAddress = false;
 	lightWallet.bRefreshFullHistory = false;
 	await lookForExistingStablecoins();
-	await wait(100);
+	await wait(1000);
 	console.log("found all existing AAs");
 	lightWallet.bRefreshHistoryOnNewAddress = true;
 	lightWallet.bRefreshFullHistory = true;
@@ -385,11 +397,17 @@ async function start(){
 		process.exit();
 	}
 	addLightWatchedAas();
-	api.start();
 	console.log("will wait for previous refresh to finish");
 	await lightWallet.waitUntilHistoryRefreshDone();
 	console.log("requesting refresh with all found AAs");
 	lightWallet.refreshLightClientHistory();
+	await lightWallet.waitUntilHistoryRefreshDone();
+	await wait(100);
+
+	const unlock = await mutex.lock('AAResponse'); // wait for all responses to be handled
+	unlock();
+
+	await api.start();
 }
 
 async function reprocessTrades(){
