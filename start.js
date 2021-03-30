@@ -118,30 +118,122 @@ async function treatResponseFromStableAA(objResponse, objInfos){
 	// stable -> interest
 	var stable_amount_to_aa = getAmountToAa(objTriggerUnit, stableAaAddress, stable_asset);
 	if (stable_amount_to_aa > 0 && interest_amount_from_aa > 0){
-		if (interest_amount_from_aa > 0){
-			await db.query("REPLACE INTO trades (response_unit, base, quote, base_qty, quote_qty, type, timestamp) VALUES (?,?,?,?,?,?,?)", 
-			[objResponse.response_unit, stable_asset, interest_asset, stable_amount_to_aa, interest_amount_from_aa, 'sell', timestamp]);
-			await saveSupplyForAsset(stable_asset, supply); 
-			return api.refreshMarket(stable_asset, interest_asset);
+		await db.query("REPLACE INTO trades (response_unit, base, quote, base_qty, quote_qty, type, timestamp) VALUES (?,?,?,?,?,?,?)", 
+		[objResponse.response_unit, stable_asset, interest_asset, stable_amount_to_aa, interest_amount_from_aa, 'sell', timestamp]);
+		await saveSupplyForAsset(stable_asset, supply); 
+		return api.refreshMarket(stable_asset, interest_asset);
+	}
+}
+
+async function treatResponseFromFundAA(objResponse, objInfos){
+	const { trigger_unit, trigger_address, response_unit } = objResponse;
+	if (!response_unit)
+		return;
+	const objTriggerUnit = await storage.readUnit(trigger_unit);
+	if (!objTriggerUnit)
+		throw Error('trigger unit not found ' + trigger_unit);
+	const data = getTriggerUnitData(objTriggerUnit);
+
+	const objResponseUnit = await getJointFromStorageOrHub(response_unit);
+	const fundAaAddress = objResponse.aa_address;
+	const reserve_asset = objInfos.reserve_asset;
+	const asset_1 = objInfos.asset_1;
+	const shares_asset = objInfos.shares_asset;
+	const curve_aa = objInfos.curve_aa;
+
+	if (trigger_address === curve_aa)
+		return console.log(`fund received from curve AA, trigger ${trigger_unit}`);
+
+	const shares_amount_from_aa =  getAmountFromAa(objResponseUnit, fundAaAddress, shares_asset);
+
+	const reserve_amount_to_aa = getAmountToAa(objTriggerUnit, fundAaAddress, reserve_asset);
+	const reserve_amount_from_aa =  getAmountFromAa(objResponseUnit, fundAaAddress, reserve_asset);
+
+	const timestamp = objResponseUnit ? new Date(objResponseUnit.timestamp * 1000).toISOString() : null;
+
+	const fundAaVars = process.env.reprocess ? {} : await dag.readAAStateVars(fundAaAddress); // we don't refresh supply when reprocessing
+	const supply = fundAaVars.shares_supply;
+
+	// reserve -> shares
+	if (reserve_amount_to_aa > 0 && shares_amount_from_aa > 0){
+
+		await db.query("REPLACE INTO trades (response_unit, base, quote, base_qty, quote_qty, type, timestamp) VALUES (?,?,?,?,?,?,?)", 
+		[response_unit, shares_asset, reserve_asset, shares_amount_from_aa, reserve_amount_to_aa, 'buy', timestamp]);
+		await saveSupplyForAsset(shares_asset, supply); // only shares asset supply changes, reserve asset is only locked
+		return api.refreshMarket(shares_asset, reserve_asset);
+	
+	} 
+
+	// shares -> reserve
+	let shares_amount_to_aa = getAmountToAa(objTriggerUnit, fundAaAddress, shares_asset);
+	const reserveRecipients = getRecipients(objResponseUnit, fundAaAddress, reserve_asset);
+	const externalRecipients = reserveRecipients.filter(a => a != curve_aa);
+	if (shares_amount_to_aa > 0 || reserve_amount_from_aa > 0 && externalRecipients.length > 0) {
+		if (shares_amount_to_aa > 0) { // 1st step: redeem t1
+			const t1Recipients = getRecipients(objResponseUnit, fundAaAddress, asset_1);
+			if (t1Recipients.length !== 1 || t1Recipients[0] !== curve_aa)
+				throw Error(`fund ${fundAaAddress} response is not to the curve ${curve_aa}, trigger ${trigger_unit}`);
+			const [curve_response] = await db.query("SELECT * FROM aa_responses WHERE trigger_unit=? AND aa_address=?", [response_unit, curve_aa]);
+			if (!curve_response)
+				return console.log(`no curve response yet, trigger ${trigger_unit}`);
+			return console.log(`received 1st of 2 fund responses for share redemption, will wait for the 2nd one, trigger ${trigger_unit}`);
+		}
+		else { // 2nd step: pay the reserve asset
+			const de_aa = await dag.readAAStateVar(curve_aa, 'decision_engine_aa');
+			if (trigger_address !== de_aa)
+				throw Error(`trigger_address !== de_aa ${trigger_address} !== ${de_aa} in trigger ${trigger_unit}`);
+			
+			// one step back
+			const [de_response] = await db.query("SELECT * FROM aa_responses WHERE response_unit=? AND aa_address=?", [trigger_unit, de_aa]);
+			if (!de_response)
+				throw Error(`failed to find the DE response that truggered us, trigger ${trigger_unit}, curve ${curve_aa}, DE ${de_aa}`);
+			
+			// two steps back
+			const [curve_response] = await db.query("SELECT * FROM aa_responses WHERE response_unit=? AND aa_address=?", [de_response.trigger_unit, curve_aa]);
+			if (!curve_response)
+				throw Error(`failed to find the curve response that truggered the DE, DE trigger ${de_response.trigger_unit}, curve ${curve_aa}`);
+			
+			// three steps back
+			const [first_response] = await db.query("SELECT * FROM aa_responses WHERE response_unit=? AND aa_address=?", [curve_response.trigger_unit, fundAaAddress]);
+			if (!first_response)
+				throw Error(`failed to find our first response for redemption finished in trigger ${trigger_unit}, curve's trigger was ${curve_response.trigger_unit}`);
+			
+			const objFirstTriggerUnit = await storage.readUnit(first_response.trigger_unit);
+			shares_amount_to_aa = getAmountToAa(objFirstTriggerUnit, fundAaAddress, shares_asset);
+			if (!shares_amount_to_aa)
+				throw Error(`initial shares redeemed ${shares_amount_to_aa} in secondary trigger ${trigger_unit}`);
+			
+			await db.query("REPLACE INTO trades (response_unit, base, quote, base_qty, quote_qty, type, timestamp) VALUES (?,?,?,?,?,?,?)",
+			[objResponse.response_unit, shares_asset, reserve_asset, shares_amount_to_aa, reserve_amount_from_aa, 'sell', timestamp]);
+			await saveSupplyForAsset(shares_asset, supply); 
+			return api.refreshMarket(shares_asset, reserve_asset);
 		} 
 	}
-
-	
 }
 
 async function treatResponseFromCurveAA(objResponse, objInfos){
 
-	if (!objResponse.response_unit)
-		return console.log("no response");
+	const curveAaAddress = objInfos.address;
+	const reserve_asset = objInfos.reserve_asset;
+	const asset1 = objInfos.asset_1;
+	const asset2 = objInfos.asset_2;
+
+	const curveAaVars =  process.env.reprocess ? {} : await dag.readAAStateVars(curveAaAddress);
+	const supply1 = curveAaVars.supply1;
+	const supply2 = curveAaVars.supply2;
+
+	const objTriggerUnit = await getJointFromStorageOrHub(objResponse.trigger_unit);
+
+	if (!objResponse.response_unit) {
+		const data = getTriggerUnitData(objTriggerUnit);
+		if (objResponse.trigger_address === curveAaVars['governance_aa'] && data.name === 'decision_engine_aa') {
+			console.log(`new DE introduced by governance: ${data.value}`);
+			walletGeneral.addWatchedAddress(data.value);
+		}
+		return console.log(`no response from curve AA ${curveAaAddress}, trigger ${objResponse.trigger_unit}`);
+	}
 	
 	if (objResponse.response.responseVars && objResponse.response.responseVars.p2){
-
-		const objTriggerUnit = await getJointFromStorageOrHub(objResponse.trigger_unit);
-	
-		const curveAaAddress = objInfos.address;
-		const reserve_asset = objInfos.reserve_asset;
-		const asset1 = objInfos.asset_1;
-		const asset2 = objInfos.asset_2;
 
 		const objResponseUnit = await getJointFromStorageOrHub(objResponse.response_unit);
 
@@ -152,10 +244,6 @@ async function treatResponseFromCurveAA(objResponse, objInfos){
 	
 		const reserveTradedForAsset2 = asset1_added !== 0 ? (objResponse.response.responseVars.p2 * 10 ** (objInfos.reserve_decimals - objInfos.asset_2_decimals) * asset2_added) : reserve_added;
 		const reserveTradedForAsset1 = reserve_added - reserveTradedForAsset2;
-
-		const curveAaVars =  process.env.reprocess ? {} : await dag.readAAStateVars(curveAaAddress);
-		const supply1 = curveAaVars.supply1;
-		const supply2 = curveAaVars.supply2;
 
 		if (asset1_added != 0){
 			await db.query("REPLACE INTO trades (response_unit, base, quote, base_qty, quote_qty, type, timestamp) VALUES (?,?,?,?,?,?,?)", 
@@ -185,18 +273,42 @@ async function onAaResponse(objResponse){
 	if (rows[0])
 		return treatResponseFromCurveAA(objResponse, rows[0]);
 
-	rows = await db.query("SELECT deposits_aas.address AS deposits_aa, curve_aa, * FROM deposits_aas \n\
+	rows = await db.query("SELECT deposits_aas.address AS deposits_aa, curve_aa, stable_asset, asset_2 FROM deposits_aas \n\
 	INNER JOIN curve_aas ON deposits_aas.curve_aa=curve_aas.address WHERE deposits_aas.address=?",[aa_address]);
 	if (rows[0])
 		return treatResponseFromDepositsAA(objResponse, rows[0]);
 
-	rows = await db.query("SELECT stable_aas.address AS stable_aa, curve_aa, * FROM stable_aas \n\
+	rows = await db.query("SELECT stable_aas.address AS stable_aa, curve_aa, stable_asset, asset_2 FROM stable_aas \n\
 	INNER JOIN curve_aas ON stable_aas.curve_aa=curve_aas.address WHERE stable_aas.address=?",[aa_address]);
 	if (rows[0])
 		return treatResponseFromStableAA(objResponse, rows[0]);
 
+	rows = await db.query("SELECT fund_aas.address AS fund_aa, curve_aa, shares_asset, asset_1, reserve_asset FROM fund_aas \n\
+	INNER JOIN curve_aas ON fund_aas.curve_aa=curve_aas.address WHERE fund_aas.address=?", [aa_address]);
+	if (rows[0])
+		return treatResponseFromFundAA(objResponse, rows[0]);
+
 }
 
+
+function getRecipients(objResponseUnit, aa_address, asset = 'base'){
+	if (!objResponseUnit)
+		return [];
+	let recipients = [];
+	objResponseUnit.messages.forEach(function (message){
+		if (message.app !== 'payment')
+			return;
+		const payload = message.payload;
+		if (asset === 'base' && payload.asset || asset != 'base' && asset !== payload.asset)
+			return;
+		payload.outputs.forEach(function (output){
+			if (output.address !== aa_address && !recipients.includes(output.address)) {
+				recipients.push(output.address); 
+			} 
+		});
+	});
+	return recipients;
+}
 
 function getAmountFromAa(objResponseUnit, aa_address, asset = 'base'){
 	if (!objResponseUnit)
@@ -255,9 +367,15 @@ function replaceConsoleLog(){
 
 
 async function start(){
-	replaceConsoleLog();
+//	replaceConsoleLog();
 	await sqlite_tables.create();
+
+	// instead of handling multiple chaotically ordered 'new_address' events, get the entire history in refreshLightClientHistory() after all addresses are added
+	lightWallet.bRefreshHistoryOnNewAddress = false;
 	await lookForExistingStablecoins();
+	await wait(100);
+	console.log("found all existing AAs");
+	lightWallet.bRefreshHistoryOnNewAddress = true;
 	
 	if (process.env.reprocess){
 		await reprocessTrades();
@@ -266,8 +384,10 @@ async function start(){
 	}
 	addLightWatchedAas();
 	api.start();
+	console.log("will wait for previous refresh to finish");
+	await lightWallet.waitUntilHistoryRefreshDone();
+	console.log("requesting refresh with all found AAs");
 	lightWallet.refreshLightClientHistory();
-	eventBus.on('connected', addLightWatchedAas)
 }
 
 async function reprocessTrades(){
@@ -285,6 +405,7 @@ async function addLightWatchedAas(){
 	});
 	network.addLightWatchedAa(conf.deposit_base_aa, null, console.log);
 	network.addLightWatchedAa(conf.stable_base_aa, null, console.log);
+	network.addLightWatchedAa(conf.fund_base_aa, null, console.log);
 	network.addLightWatchedAa(conf.token_registry_aa_address, null, console.log);
 }
 
@@ -292,6 +413,7 @@ async function lookForExistingStablecoins(){
 	await discoverCurveAas();
 	await discoverDepositAas();
 	await discoverStableAas();
+	await discoverFundAas();
 }
 
 
@@ -336,7 +458,6 @@ async function saveAndWatchStableAa(objAa){
 	walletGeneral.addWatchedAddress(objAa.address);
 }
 
-
 async function saveStableAa(objAa) {
 	const stableAaAddress = objAa.address;
 	const curveAaAddress = objAa.definition[1].params.curve_aa;
@@ -351,6 +472,42 @@ async function saveStableAa(objAa) {
 	await saveSymbolForAsset(asset);
 }
 
+
+async function discoverFundAas() {
+	const arrResponse = await dag.getAAsByBaseAAs(conf.fund_base_aa);
+	
+	// watch all DEs
+	const curveAddresses = arrResponse.map(obj => obj.definition[1].params.curve_aa);
+	await Promise.all(curveAddresses.map(watchDE));
+	
+	const allAaAddresses = arrResponse.map(obj => obj.address);
+	const rows = await db.query("SELECT address FROM fund_aas WHERE address IN(" + allAaAddresses.map(db.escape).join(',') + ")");
+	const knownAaAddresses = rows.map(obj => obj.address);
+	const newFundAas = arrResponse.filter(obj => !knownAaAddresses.includes(obj.address))
+	await Promise.all(newFundAas.map(saveAndWatchFundAa));
+}
+
+async function saveAndWatchFundAa(objAa){
+	await saveFundAa(objAa);
+	walletGeneral.addWatchedAddress(objAa.address);
+}
+
+async function saveFundAa(objAa) {
+	const fundAaAddress = objAa.address;
+	const curveAaAddress = objAa.definition[1].params.curve_aa;
+	const vars = await dag.readAAStateVars(fundAaAddress);
+	const shares_asset = vars['shares_asset'];
+	if (!shares_asset)
+		throw Error(`no shares_asset on fund AA ${fundAaAddress}`);
+	await db.query("INSERT " + db.getIgnore() + " INTO fund_aas (address, shares_asset, curve_aa) VALUES (?,?,?)", [fundAaAddress, shares_asset, curveAaAddress]);
+	await saveSymbolForAsset(shares_asset);
+	await watchDE(curveAaAddress);
+}
+
+async function watchDE(curve_aa) {
+	const de_aa = await dag.readAAStateVar(curve_aa, 'decision_engine_aa');
+	walletGeneral.addWatchedAddress(de_aa);
+}
 
 
 async function discoverCurveAas(){
@@ -406,6 +563,8 @@ async function refreshSymbols(){
 		SELECT stable_asset AS asset FROM deposits_aas
 		UNION
 		SELECT stable_asset AS asset FROM stable_aas
+		UNION
+		SELECT shares_asset AS asset FROM fund_aas
 		UNION
 		SELECT DISTINCT reserve_asset AS asset FROM curve_aas
 		UNION
@@ -468,6 +627,8 @@ function onAADefinition(objUnit){
 				saveAndwatchDepositsAa({ address: objectHash.getChash160(payload.definition), definition: payload.definition });
 			if (base_aa == conf.stable_base_aa)
 				saveAndWatchStableAa({ address: objectHash.getChash160(payload.definition), definition: payload.definition });
+			if (base_aa == conf.fund_base_aa)
+				saveAndWatchFundAa({ address: objectHash.getChash160(payload.definition), definition: payload.definition });
 			if (conf.curve_base_aas.indexOf(base_aa) > -1){
 				const address = objectHash.getChash160(payload.definition);
 				const definition = payload.definition;

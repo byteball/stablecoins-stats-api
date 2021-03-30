@@ -71,6 +71,12 @@ exports.create = async function(){
 		curve_aa CHAR(32) NOT NULL \n\
 	)");
 
+	await db.query("CREATE TABLE IF NOT EXISTS fund_aas (\n\
+		address CHAR(32) NOT NULL PRIMARY KEY, \n\
+		shares_asset CHAR(44) NOT NULL, \n\
+		curve_aa CHAR(32) NOT NULL \n\
+	)");
+
 	await db.query("CREATE TABLE IF NOT EXISTS curve_aas (\n\
 		address CHAR(32) NOT NULL PRIMARY KEY, \n\
 		reserve_asset CHAR(44) NOT NULL, \n\
