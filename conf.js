@@ -5,6 +5,7 @@ require('dotenv').config({ path: path.dirname(process.mainModule.paths[0]) + '/.
 exports.bServeAsHub = false;
 exports.bLight = true;
 exports.bNoPassphrase = true;
+exports.explicitStart = true;
 
 exports.apiPort = process.env.testnet ? 4001 : 4000;
 

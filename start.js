@@ -385,6 +385,8 @@ async function start(){
 	// instead of handling multiple chaotically ordered 'new_address' events, get the entire history in refreshLightClientHistory() after all addresses are added
 	lightWallet.bRefreshHistoryOnNewAddress = false;
 	lightWallet.bRefreshFullHistory = false;
+	console.log('starting network');
+	network.start();
 	await lookForExistingStablecoins();
 	await wait(1000);
 	console.log("found all existing AAs");
@@ -404,8 +406,10 @@ async function start(){
 	await lightWallet.waitUntilHistoryRefreshDone();
 	await wait(100);
 
-	const unlock = await mutex.lock('AAResponse'); // wait for all responses to be handled
+	console.log('will wait for all responses to be handled')
+	const unlock = await mutex.lock('AAResponse');
 	unlock();
+	console.log('all responses are now handled, starting api')
 
 	await api.start();
 }
