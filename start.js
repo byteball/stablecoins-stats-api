@@ -414,6 +414,7 @@ async function start(){
 	unlock();
 	console.log('all responses are now handled, starting api')
 
+	await refreshSymbols();
 	await api.start();
 }
 
