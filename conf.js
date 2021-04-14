@@ -12,7 +12,7 @@ exports.apiPort = process.env.testnet ? 4001 : 4000;
 exports.hub = process.env.testnet ? 'obyte.org/bb-test' : 'obyte.org/bb';
 exports.explorer_base_url = process.env.testnet ? 'https://testnetexplorer.obyte.org/#' : 'https://explorer.obyte.org/#';
 
-exports.curve_base_aas = ["FCFYMFIOGS363RLDLEWIDBIIBU7M7BHP", "3RNNDX57C36E76JLG2KAQSIASAYVGAYG", "STA7KVV77IHZ3S34YAFZAIKUGPIK4EZ7"];
+exports.curve_base_aas = ["FCFYMFIOGS363RLDLEWIDBIIBU7M7BHP", "3RNNDX57C36E76JLG2KAQSIASAYVGAYG", "STA7KVV77IHZ3S34YAFZAIKUGPIK4EZ7", "3DGWRKKWWSC6SV4ZQDWEHYFRYB4TGPKX"];
 exports.deposit_base_aa = "GEZGVY4T3LK6N4NJAKNHNQIVAI5OYHPC";
 exports.stable_base_aa = "YXPLX6Q3HBBSH2K5HLYM45W7P7HFSEIN";
 exports.fund_base_aa = "5WOTEURNL2XGGKD2FGM5HEES4NKVCBCR";
