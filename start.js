@@ -559,6 +559,7 @@ async function saveSupplyForAsset(asset, supply){
 
 
 async function saveSymbolForAsset(asset){
+	console.log('saveSymbolForAsset', asset)
 	var symbol,decimals, description;
 	if (asset !== 'base'){
 		var registryVars = await getStateVarsForPrefixes(conf.token_registry_aa_address, [
@@ -586,6 +587,7 @@ async function saveSymbolForAsset(asset){
 }
 
 async function refreshSymbols(){
+	console.log('refreshSymbols')
 	const rows = await db.query(`
 		SELECT stable_asset AS asset FROM deposits_aas
 		UNION
@@ -599,8 +601,8 @@ async function refreshSymbols(){
 		UNION
 		SELECT asset_2 AS asset FROM curve_aas
 	`);
-	for (var i=0; i < rows.length; i++)
-		await saveSymbolForAsset(rows[i].asset);
+	for (let { asset } of rows)
+		await saveSymbolForAsset(asset);
 	api.initMarkets();
 }
 

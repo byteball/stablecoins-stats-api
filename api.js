@@ -29,9 +29,10 @@ async function initMarkets(){
 }
 
 async function refreshMarkets(){
+	console.log('refreshMarkets')
 	const rows = await db.query('SELECT DISTINCT base,quote FROM trades');
-	for (var i=0; i < rows.length; i++){
-		await refreshMarket(rows[i].base, rows[i].quote);
+	for (let { base, quote } of rows) {
+		await refreshMarket(base, quote);
 	}
 };
 
