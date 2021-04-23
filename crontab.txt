@@ -1,0 +1,1 @@
+*/20 * * * * cd stablecoins-stats-api; node check_daemon.js 1>>~/.config/stablecoins-stats-api/check_daemon.log 2>>~/.config/stablecoins-stats-api/check_daemon.err
