@@ -115,7 +115,7 @@ function computeAllGbPrices() {
 
 	findGbPrices();
 
-	function findGbPrices(passesLeft = 2){
+	function findGbPrices(passesLeft = 3){
 		for (var symbol in assocAssetsBySymbols){
 			if (assocAssetsBySymbols[symbol].last_gbyte_value)
 				continue;	
