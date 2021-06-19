@@ -151,7 +151,7 @@ async function treatResponseFromFundAA(objResponse, objInfos){
 	const shares_amount_from_aa =  getAmountFromAa(objResponseUnit, fundAaAddress, shares_asset);
 
 	const reserve_amount_to_aa = getAmountToAa(objTriggerUnit, fundAaAddress, reserve_asset);
-	const reserve_amount_from_aa =  getAmountFromAa(objResponseUnit, fundAaAddress, reserve_asset);
+	const reserve_amount_from_aa = getAmountFromAa(objResponseUnit, fundAaAddress, reserve_asset, [curve_aa]);
 
 	const timestamp = objResponseUnit ? new Date(objResponseUnit.timestamp * 1000).toISOString() : null;
 
@@ -325,7 +325,7 @@ function getRecipients(objResponseUnit, aa_address, asset = 'base'){
 	return recipients;
 }
 
-function getAmountFromAa(objResponseUnit, aa_address, asset = 'base'){
+function getAmountFromAa(objResponseUnit, aa_address, asset = 'base', excluded_recipients = []){
 	if (!objResponseUnit)
 		return 0;
 	let amount = 0;
@@ -336,7 +336,7 @@ function getAmountFromAa(objResponseUnit, aa_address, asset = 'base'){
 		if (asset == 'base' && payload.asset || asset != 'base' && asset !== payload.asset)
 			return;
 		payload.outputs.forEach(function (output){
-			if (output.address !== aa_address) {
+			if (output.address !== aa_address && !excluded_recipients.includes(output.address)) {
 				amount += output.amount; 
 			} 
 		});
