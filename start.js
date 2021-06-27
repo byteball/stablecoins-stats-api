@@ -175,6 +175,8 @@ async function treatResponseFromFundAA(objResponse, objInfos){
 	if (shares_amount_to_aa > 0 || reserve_amount_from_aa > 0 && externalRecipients.length > 0) {
 		if (shares_amount_to_aa > 0) { // 1st step: redeem t1
 			const t1Recipients = getRecipients(objResponseUnit, fundAaAddress, asset_1);
+			if (t1Recipients.length === 0)
+				return console.log(`fund ${fundAaAddress} didn't send t1 to anybody`);
 			if (t1Recipients.length !== 1 || t1Recipients[0] !== curve_aa)
 				throw Error(`fund ${fundAaAddress} response is not to the curve ${curve_aa}, trigger ${trigger_unit}`);
 			const [curve_response] = await db.query("SELECT * FROM aa_responses WHERE trigger_unit=? AND aa_address=?", [response_unit, curve_aa]);
