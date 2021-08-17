@@ -1,8 +1,6 @@
-## Oswap-stats-api
+# Bonded stablecoins stats API
 
-This O<sub>byte</sub> light node explores the DAG and provides API endpoints giving information about trades happening with bonding curves assets.
-
-Available publu
+This O<sub>byte</sub> light node explores the DAG and provides API endpoints giving information about trades happening with [bonded stablecoins](https://ostable.org) assets.
 
 #### Installation
 
