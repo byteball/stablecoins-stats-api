@@ -9,6 +9,5 @@
 		"ocore": "git+https://github.com/byteball/ocore.git"
 	},
 	"resolutions": {
-		"level-rocksdb": "^4.0.0"
 	}
 }
