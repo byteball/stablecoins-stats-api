@@ -468,7 +468,7 @@ async function saveDepositsAa(objAa) {
 	const vars = await dag.readAAStateVars(depositsAaAddress);
 	const asset = vars['asset'];
 	if (!asset)
-		throw Error(`no asset on deposit AA ${depositsAaAddress}`);
+		return console.log(`no asset on deposit AA ${depositsAaAddress}`);
 	await db.query("INSERT " + db.getIgnore() + " INTO deposits_aas (address, stable_asset, curve_aa) VALUES (?,?,?)", [depositsAaAddress, asset, curveAaAddress]);
 	await saveSymbolForAsset(asset);
 }
@@ -528,7 +528,7 @@ async function saveFundAa(objAa) {
 	const vars = await dag.readAAStateVars(fundAaAddress);
 	const shares_asset = vars['shares_asset'];
 	if (!shares_asset)
-		throw Error(`no shares_asset on fund AA ${fundAaAddress}`);
+		return console.log(`no shares_asset on fund AA ${fundAaAddress}`);
 	await db.query("INSERT " + db.getIgnore() + " INTO fund_aas (address, shares_asset, curve_aa) VALUES (?,?,?)", [fundAaAddress, shares_asset, curveAaAddress]);
 	await saveSymbolForAsset(shares_asset);
 	await watchDE(curveAaAddress);
@@ -622,7 +622,7 @@ async function saveCurveAa(objAa) {
 	const asset2 = curveAaVars.asset2;
 
 	if (!asset1 || !asset2)
-		throw Error(`no assets on curve AA ${curveAaAddress}`);
+		return console.log(`no assets on curve AA ${curveAaAddress}`);
 	await db.query("INSERT " + db.getIgnore() + " INTO curve_aas (address, asset_1, asset_2, reserve_asset, asset_1_decimals, asset_2_decimals,reserve_decimals) \n\
 	VALUES (?,?,?,?,?,?,?)", 
 	[curveAaAddress, asset1, asset2, reserve_asset, asset1Decimals, asset2Decimals, reserveDecimals]);
